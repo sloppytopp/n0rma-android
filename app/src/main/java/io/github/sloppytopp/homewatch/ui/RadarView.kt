@@ -7,6 +7,15 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.Column
@@ -35,7 +44,7 @@ import io.github.sloppytopp.homewatch.detect.Snapshot
 import kotlin.math.cos
 import kotlin.math.sin
 
-private data class Blip(val id: String, val label: String, val meters: Double, val color: Color, val triangle: Boolean = false, val pulse: Boolean = false)
+private data class Blip(val id: String, val label: String, val meters: Double, val color: Color, val triangle: Boolean = false, val pulse: Boolean = false, val key: String = id)
 
 private fun blips(s: Snapshot): List<Blip> {
     val out = ArrayList<Blip>()
@@ -45,7 +54,7 @@ private fun blips(s: Snapshot): List<Blip> {
             w.ssid in Prefs.mySsids -> UiColors.good
             else -> UiColors.neutral
         }
-        out += Blip(w.bssid, w.ssid, Geo.rssiToMeters(w.level, -45), c)
+        out += Blip(w.bssid, w.ssid, Geo.rssiToMeters(w.level, -45), c, key = "wifi:" + w.bssid)
     }
     val tcol = if (s.tracker.level == Level.ALERT) UiColors.alert else UiColors.watch
     for (t in s.trackers) out += Blip(t.addr, (if (t.mine) "Yours: " else "") + t.label.substringBefore(" SEPARATED"), Geo.rssiToMeters(t.rssi, -59), if (t.mine) UiColors.good else tcol, pulse = !t.mine)
@@ -66,38 +75,69 @@ fun radarAlpha(sweep: Double, angle: Double, pulse: Boolean): Float {
     return if (pulse) maxOf(0.7f, f) else f
 }
 
+private const val LANE_ROWS = 3
+
 @Composable
 fun RadarView(s: Snapshot) {
     val tm = rememberTextMeasurer()
     val label = TextStyle(color = UiColors.dim, fontSize = 11.sp)
     val read = TextStyle(color = UiColors.good, fontSize = 12.sp)
     val still = reducedMotion()
+    val compass = rememberCompass()
+    val heading by compass.heading
     val phase by rememberInfiniteTransition(label = "sweep").animateFloat(
         0f, 1f, infiniteRepeatable(tween(4000, easing = LinearEasing), RepeatMode.Restart), label = "p")
     val frac = if (still) 0f else phase
     val sw = frac * 2 * Math.PI - Math.PI / 2
     val g = UiColors.good
     val bl = blips(s)
+    val now = System.currentTimeMillis()
+    val bearingOf = bl.associate { it.key to Bearings.get(it.key, now) }
+    val placed = bl.filter { bearingOf[it.key] != null }
+    val lane = bl.filter { bearingOf[it.key] == null }.sortedBy { it.meters }
+    var finding by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var help by remember { mutableStateOf(false) }
+    val density = LocalDensity.current.density
+
+    fun scopeXY(b: Blip, w: Float): Offset {
+        val c = w / 2; val r = w / 2 - 14 * density
+        val a = Math.toRadians(bearingOf[b.key]!! - 90.0)
+        val rad = r * Geo.radarFraction(b.meters).toFloat()
+        return Offset(c + rad * cos(a).toFloat(), c + rad * sin(a).toFloat())
+    }
+    fun laneXY(i: Int, b: Blip, w: Float, h: Float): Offset {
+        val x = 14 * density + (w - 28 * density) * Geo.radarFraction(b.meters).toFloat()
+        val row = i % LANE_ROWS
+        return Offset(x, 26 * density + row * (h - 34 * density) / LANE_ROWS)
+    }
+    fun nearest(pts: List<Pair<Blip, Offset>>, at: Offset): Blip? =
+        pts.minByOrNull { (_, o) -> (o - at).getDistance() }?.takeIf { (_, o) -> (o - at).getDistance() <= 30 * density }?.first
+
     Column {
-        Canvas(Modifier.fillMaxWidth().aspectRatio(1f)) {
+        Canvas(Modifier.fillMaxWidth().aspectRatio(1f).pointerInput(placed) {
+            detectTapGestures { at -> nearest(placed.map { it to scopeXY(it, size.width.toFloat()) }, at)?.let { finding = it.key to it.label } }
+        }) {
             val w = size.width
             val c = Offset(w / 2, w / 2)
             val r = w / 2 - 14.dp.toPx()
             // scope face
             drawCircle(Brush.radialGradient(listOf(Color(0xD9003418), Color(0xEB000804)), c, r), r, c)
-            // rim ticks (decoration only: no bearing data exists)
+            // rim ticks
             for (i in 0 until 36) {
                 val a = i * Math.PI / 18; val l = if (i % 3 == 0) 9.dp.toPx() else 4.dp.toPx()
                 drawLine(g.copy(alpha = 0.7f), Offset(c.x + (r + 3.dp.toPx()) * cos(a).toFloat(), c.y + (r + 3.dp.toPx()) * sin(a).toFloat()),
                     Offset(c.x + (r + 3.dp.toPx() + l) * cos(a).toFloat(), c.y + (r + 3.dp.toPx() + l) * sin(a).toFloat()), 1.dp.toPx())
             }
             listOf(0.33f to "VERY CLOSE", 0.66f to "CLOSE", 1f to "FAR").forEach { (f, name) ->
-                drawCircle(g.copy(alpha = 0.12f), r * f, c, style = Stroke(5.dp.toPx()))   // glow
+                drawCircle(g.copy(alpha = 0.12f), r * f, c, style = Stroke(5.dp.toPx()))
                 drawCircle(UiColors.ring, r * f, c, style = Stroke(1.dp.toPx()))
                 drawText(tm, name, Offset(c.x + 4.dp.toPx(), c.y - r * f + 2.dp.toPx()), label)
             }
             drawLine(UiColors.ring, Offset(c.x - r, c.y), Offset(c.x + r, c.y), 1.dp.toPx())
             drawLine(UiColors.ring, Offset(c.x, c.y - r), Offset(c.x, c.y + r), 1.dp.toPx())
+            drawText(tm, "N", Offset(c.x - 4.dp.toPx(), c.y - r - 1.dp.toPx() + 14.dp.toPx()), label.copy(color = UiColors.alert))
+            // where the phone is facing (real compass heading)
+            if (compass.available) drawArc(g.copy(alpha = 0.10f), heading - 90f - 22f, 44f, true, Offset(c.x - r, c.y - r), Size(2 * r, 2 * r))
             // sweep trail + beam
             if (!still) {
                 val sweepDeg = Math.toDegrees(sw).toFloat()
@@ -107,16 +147,15 @@ fun RadarView(s: Snapshot) {
                 }
             }
             drawLine(g, c, Offset(c.x + r * cos(sw).toFloat(), c.y + r * sin(sw).toFloat()), 2.dp.toPx())
-            // blips
-            for (b in bl) {
-                val a = (b.id.hashCode().toLong() and 0x7fffffff) % 3600 / 3600.0 * 2 * Math.PI
-                val rad = r * Geo.radarFraction(b.meters).toFloat()
-                val x = c.x + rad * cos(a).toFloat(); val y = c.y + rad * sin(a).toFloat()
+            // contacts with a MEASURED bearing sit at that real compass direction
+            for (b in placed) {
+                val o = scopeXY(b, w)
+                val a = Math.toRadians(bearingOf[b.key]!! - 90.0)
                 val al = if (still) 1f else radarAlpha(sw, a, b.pulse)
-                if (b.pulse) drawCircle(b.color.copy(alpha = 0.3f * al), (12 + 9 * Math.abs(sin(phase * 8 * Math.PI))).toFloat().dp.toPx(), Offset(x, y))
-                drawCircle(b.color.copy(alpha = 0.25f * al), 11.dp.toPx(), Offset(x, y))   // glow
-                if (b.triangle) tri(x, y, 9.dp.toPx(), b.color.copy(alpha = al)) else drawCircle(b.color.copy(alpha = al), 5.dp.toPx(), Offset(x, y))
-                drawText(tm, b.label.take(14).uppercase(), Offset(x + 9.dp.toPx(), y - 6.dp.toPx()), label.copy(color = UiColors.dim.copy(alpha = al)))
+                if (b.pulse) drawCircle(b.color.copy(alpha = 0.3f * al), (12 + 9 * Math.abs(sin(phase * 8 * Math.PI))).toFloat().dp.toPx(), o)
+                drawCircle(b.color.copy(alpha = 0.25f * al), 11.dp.toPx(), o)
+                if (b.triangle) tri(o.x, o.y, 9.dp.toPx(), b.color.copy(alpha = al)) else drawCircle(b.color.copy(alpha = al), 5.dp.toPx(), o)
+                drawText(tm, b.label.take(14).uppercase(), Offset(o.x + 9.dp.toPx(), o.y - 6.dp.toPx()), label.copy(color = UiColors.dim.copy(alpha = al)))
             }
             // you
             drawRect(Color(0xFF58A6FF), Offset(c.x - 5.dp.toPx(), c.y - 5.dp.toPx()), Size(10.dp.toPx(), 10.dp.toPx()))
@@ -125,11 +164,36 @@ fun RadarView(s: Snapshot) {
             val near = bl.minOfOrNull { it.meters }
             drawText(tm, "CONTACTS  ${bl.size}", Offset(4.dp.toPx(), 2.dp.toPx()), read)
             drawText(tm, "NEAREST   ${if (near == null) "--" else "${Math.round(near)} M (EST)"}", Offset(4.dp.toPx(), 18.dp.toPx()), read)
-            drawText(tm, "SWEEP     ${if (still) "HELD" else "4.0 S"}", Offset(4.dp.toPx(), 34.dp.toPx()), read)
+            drawText(tm, "BEARINGS  ${placed.size}/${bl.size}", Offset(4.dp.toPx(), 34.dp.toPx()), read)
         }
-        Text("Rough estimate from signal strength - indoors it can be badly wrong. Direction is NOT known: blip angles are arbitrary, and the sweep is only decoration.",
+        // lane: contacts whose direction has not been measured. Position = distance only.
+        val laneH = 96.dp
+        Canvas(Modifier.fillMaxWidth().height(laneH).pointerInput(lane) {
+            detectTapGestures { at -> nearest(lane.mapIndexed { i, b -> b to laneXY(i, b, size.width.toFloat(), size.height.toFloat()) }, at)?.let { finding = it.key to it.label } }
+        }) {
+            drawRect(g.copy(alpha = 0.05f))
+            drawRect(UiColors.ring, style = Stroke(1.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f))))
+            drawText(tm, "DIRECTION UNKNOWN", Offset(6.dp.toPx(), 3.dp.toPx()), label.copy(color = UiColors.warn))
+            drawText(tm, "NEAR", Offset(size.width - 76.dp.toPx(), 3.dp.toPx()), label)
+            drawText(tm, "FAR >", Offset(size.width - 38.dp.toPx(), 3.dp.toPx()), label)
+            for ((i, b) in lane.withIndex()) {
+                val o = laneXY(i, b, size.width, size.height)
+                val al = if (still) 1f else (0.7f + 0.3f * sin(phase * 2 * Math.PI)).toFloat()
+                drawCircle(b.color.copy(alpha = 0.25f * al), 10.dp.toPx(), o)
+                if (b.triangle) tri(o.x, o.y, 8.dp.toPx(), b.color.copy(alpha = al)) else drawCircle(b.color.copy(alpha = al), 5.dp.toPx(), o)
+                drawText(tm, b.label.take(12).uppercase(), Offset(o.x + 8.dp.toPx(), o.y - 6.dp.toPx()), label.copy(color = UiColors.dim.copy(alpha = al)))
+            }
+            if (lane.isEmpty()) drawText(tm, "none - every contact has a measured direction", Offset(6.dp.toPx(), 40.dp.toPx()), label)
+        }
+        Text("DIST: ESTIMATED FROM SIGNAL  ·  BEARING: ${placed.size} MEASURED / ${lane.size} UNKNOWN", color = UiColors.dim, fontSize = 10.sp)
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("TAP A CONTACT TO MEASURE ITS DIRECTION", color = UiColors.good, fontSize = 10.sp, modifier = Modifier.weight(1f))
+            TextButton(onClick = { help = !help }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp), modifier = Modifier.defaultMinSize(minWidth = 1.dp)) { Text("?", color = UiColors.dim, fontSize = 14.sp) }
+        }
+        if (help) Text("Distance is estimated from signal strength and can be off indoors. Tap a contact and turn slowly in place for about 40 seconds: the strongest side becomes its bearing (roughly +/-45 degrees). Measured contacts move onto the scope at that real compass direction for 10 minutes (they only hold from where you stood). Contacts with no measured direction stay in the lane, ordered by distance only. The sweep beam is decoration.",
             color = UiColors.faint, fontSize = 11.sp)
     }
+    finding?.let { (k, l) -> Finder(k, l) { finding = null } }
 }
 
 @Composable

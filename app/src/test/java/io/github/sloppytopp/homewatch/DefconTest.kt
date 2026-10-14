@@ -25,3 +25,13 @@ class DefconTest {
         assertTrue(radarAlpha(3.0, 3.0 + 0.01, true) >= 0.7f)           // alerts never go dark
     }
 }
+
+class BearingsTest {
+    @Test fun measuredBearingExpires() {
+        io.github.sloppytopp.homewatch.ui.Bearings.clear()
+        io.github.sloppytopp.homewatch.ui.Bearings.put("wifi:aa", 120.0, now = 1_000)
+        assertEquals(120.0, io.github.sloppytopp.homewatch.ui.Bearings.get("wifi:aa", now = 1_000 + 9 * 60_000)!!, 1e-9)
+        assertNull(io.github.sloppytopp.homewatch.ui.Bearings.get("wifi:aa", now = 1_000 + 11 * 60_000))
+        assertNull(io.github.sloppytopp.homewatch.ui.Bearings.get("nope", now = 1_000))
+    }
+}

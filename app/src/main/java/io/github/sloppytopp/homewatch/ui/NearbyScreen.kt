@@ -194,7 +194,7 @@ internal fun Finder(addr: String, label: String, onClose: () -> Unit) {
                 best = FindAid.best(listOf(r), best)
                 if (sweeping) finder.add(heading.toDouble(), r)
             }
-            if (sweeping && System.currentTimeMillis() - sweepAt > 40_000) { sweeping = false; answer = finder.result(); answered = true }
+            if (sweeping && System.currentTimeMillis() - sweepAt > 40_000) { sweeping = false; answer = finder.result(); answered = true; answer?.takeIf { it.confident }?.let { Bearings.put(addr, it.bearingDeg) } }
             delay(500)
         }
     }
@@ -257,7 +257,7 @@ internal fun Finder(addr: String, label: String, onClose: () -> Unit) {
                 else if (sweeping) {
                     val left = (40 - (System.currentTimeMillis() - sweepAt) / 1000).coerceAtLeast(0)
                     Text("Turn slowly in a full circle, phone flat in front of you. ${finder.coveredSectors()}/8 directions covered - $left s left. The orange wedges grow toward the strongest signal.", fontSize = 12.sp)
-                    TextButton(onClick = { sweeping = false; answer = finder.result(); answered = true }) { Text("Finish now") }
+                    TextButton(onClick = { sweeping = false; answer = finder.result(); answered = true; answer?.takeIf { it.confident }?.let { Bearings.put(addr, it.bearingDeg) } }) { Text("Finish now") }
                 } else {
                     Text("Hold the phone flat, then turn slowly in place for a full circle. Your body blocks the signal, so it is usually strongest when you face the tracker.", fontSize = 12.sp)
                     answer?.let { r ->
