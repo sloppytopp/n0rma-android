@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun StatusTile(title: String, level: Level, message: String, onClick: (() -> Unit)? = null) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(level.containerC())
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(2.dp)).background(level.containerC())
             .let { if (onClick != null) it.clickable { onClick() } else it }
             .height(IntrinsicSize.Min)
     ) {

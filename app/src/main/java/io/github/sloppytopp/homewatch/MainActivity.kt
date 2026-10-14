@@ -18,6 +18,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -67,6 +68,8 @@ import io.github.sloppytopp.homewatch.ui.Heartbeat
 import io.github.sloppytopp.homewatch.ui.LockScreen
 import io.github.sloppytopp.homewatch.ui.HuntHost
 import io.github.sloppytopp.homewatch.ui.LiveBanner
+import io.github.sloppytopp.homewatch.ui.MatrixRain
+import io.github.sloppytopp.homewatch.ui.DefconStrip
 import io.github.sloppytopp.homewatch.ui.Meter
 import io.github.sloppytopp.homewatch.ui.NearbyScreen
 import io.github.sloppytopp.homewatch.ui.rememberNow
@@ -148,21 +151,26 @@ private fun Root() {
     }
     if (Monitor.locked) { LockScreen(); return }
     Monitor.hunt?.let { d -> HuntHost(d) { Monitor.hunt = null } }
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    MatrixRain(boost = tab == 3)
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Heartbeat(Monitor.snapshot.running)
-            Text("  N0RMA", color = UiColors.text, fontSize = 20.sp, modifier = Modifier.weight(1f))
-            TextButton(onClick = { (ctx0 as? Activity)?.finishAndRemoveTask() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) {
-                Text("✕", color = UiColors.dim, fontSize = 18.sp)
+            Text(" N0RMA", color = UiColors.good, fontSize = 17.sp, letterSpacing = 1.sp, maxLines = 1, softWrap = false, modifier = Modifier.weight(1f))
+            Text("RAIN", color = if (Prefs.rain) UiColors.good else UiColors.faint, fontSize = 10.sp, maxLines = 1, softWrap = false,
+                modifier = Modifier.clickable { Prefs.saveRain(!Prefs.rain) }.padding(start = 8.dp, top = 8.dp, bottom = 8.dp))
+            Text("NIGHT", color = if (Prefs.night) UiColors.alert else UiColors.faint, fontSize = 10.sp, maxLines = 1, softWrap = false,
+                modifier = Modifier.clickable { Prefs.saveNight(!Prefs.night) }.padding(start = 8.dp, top = 8.dp, bottom = 8.dp))
+            TextButton(onClick = { (ctx0 as? Activity)?.finishAndRemoveTask() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp), modifier = Modifier.defaultMinSize(minWidth = 1.dp)) {
+                Text("✕", color = UiColors.dim, fontSize = 16.sp)
             }
-            Text("Night", color = UiColors.dim, fontSize = 12.sp, modifier = Modifier.padding(end = 6.dp))
-            Switch(checked = Prefs.night, onCheckedChange = { Prefs.saveNight(it) })
         }
+        Box(Modifier.fillMaxWidth().padding(vertical = 2.dp), contentAlignment = androidx.compose.ui.Alignment.Center) { DefconStrip(Monitor.snapshot) }
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             listOf("Status", "Nearby", "Rooms", "Radar", "History", "Settings", "Smart").forEachIndexed { i, name ->
-                TextButton(onClick = { tab = i }, modifier = Modifier.defaultMinSize(minWidth = 1.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 3.dp)) {
+                TextButton(onClick = { tab = i }, modifier = Modifier.defaultMinSize(minWidth = 1.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 1.dp)) {
                     Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                        Text(name, color = if (tab == i) UiColors.text else UiColors.faint, fontSize = 12.sp,
+                        Text(name, color = if (tab == i) UiColors.text else UiColors.faint, fontSize = 10.sp, maxLines = 1, softWrap = false,
                             fontWeight = if (tab == i) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal)
                         // underline marks the open tab; the text size no longer changes, so the row stops shifting
                         Box(Modifier.padding(top = 2.dp).height(2.dp).width(if (tab == i) 18.dp else 0.dp).background(UiColors.good))
@@ -181,6 +189,7 @@ private fun Root() {
                 else -> SmartScreen()
             }
         }
+    }
     }
 }
 

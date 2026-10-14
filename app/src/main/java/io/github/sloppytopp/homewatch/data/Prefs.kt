@@ -18,6 +18,7 @@ object Prefs {
     private lateinit var sp: SharedPreferences
 
     var night by mutableStateOf(false); private set
+    var rain by mutableStateOf(true); private set
     var alertStyle by mutableStateOf(AlertStyle.CHIME); private set
     var home by mutableStateOf<Home?>(null); private set
     /** What the UI should treat as home: a fictional spot in sample-data mode, otherwise the user's saved home. */
@@ -35,6 +36,7 @@ object Prefs {
     fun init(ctx: Context) {
         sp = ctx.getSharedPreferences("homewatch", Context.MODE_PRIVATE)
         night = sp.getBoolean("night", false)
+        rain = sp.getBoolean("rain", true)
         alertStyle = runCatching { AlertStyle.valueOf(sp.getString("alert", "CHIME")!!) }.getOrDefault(AlertStyle.CHIME)
         if (sp.contains("home_lat")) home = Home(Double.fromBits(sp.getLong("home_lat", 0)), Double.fromBits(sp.getLong("home_lon", 0)), sp.getString("home_note", "") ?: "")
         welcomed = sp.getBoolean("welcomed", false)
@@ -60,6 +62,7 @@ object Prefs {
     fun markMine(addr: String) { myDevices = myDevices + addr; sp.edit().putStringSet("my_devices", myDevices).apply() }
     fun unmarkMine(addr: String) { myDevices = myDevices - addr; sp.edit().putStringSet("my_devices", myDevices).apply() }
     fun saveWelcomed() { welcomed = true; sp.edit().putBoolean("welcomed", true).apply() }
+    fun saveRain(v: Boolean) { rain = v; sp.edit().putBoolean("rain", v).apply() }
     fun saveNight(v: Boolean) { night = v; sp.edit().putBoolean("night", v).apply() }
     fun saveAlertStyle(v: AlertStyle) { alertStyle = v; sp.edit().putString("alert", v.name).apply() }
     fun saveHome(h: Home?) {

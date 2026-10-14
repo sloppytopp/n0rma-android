@@ -1,6 +1,14 @@
 package io.github.sloppytopp.homewatch.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,7 +35,7 @@ import io.github.sloppytopp.homewatch.detect.Snapshot
 import kotlin.math.cos
 import kotlin.math.sin
 
-private data class Blip(val id: String, val label: String, val meters: Double, val color: Color, val triangle: Boolean = false)
+private data class Blip(val id: String, val label: String, val meters: Double, val color: Color, val triangle: Boolean = false, val pulse: Boolean = false)
 
 private fun blips(s: Snapshot): List<Blip> {
     val out = ArrayList<Blip>()
@@ -40,8 +48,8 @@ private fun blips(s: Snapshot): List<Blip> {
         out += Blip(w.bssid, w.ssid, Geo.rssiToMeters(w.level, -45), c)
     }
     val tcol = if (s.tracker.level == Level.ALERT) UiColors.alert else UiColors.watch
-    for (t in s.trackers) out += Blip(t.addr, (if (t.mine) "Yours: " else "") + t.label.substringBefore(" SEPARATED"), Geo.rssiToMeters(t.rssi, -59), if (t.mine) UiColors.good else tcol)
-    for (d in s.drones) out += Blip(d.addr, "DRONE", Geo.rssiToMeters(d.rssi, if (d.via == "Wi-Fi") -45 else -59), UiColors.alert, triangle = true)
+    for (t in s.trackers) out += Blip(t.addr, (if (t.mine) "Yours: " else "") + t.label.substringBefore(" SEPARATED"), Geo.rssiToMeters(t.rssi, -59), if (t.mine) UiColors.good else tcol, pulse = !t.mine)
+    for (d in s.drones) out += Blip(d.addr, "DRONE", Geo.rssiToMeters(d.rssi, if (d.via == "Wi-Fi") -45 else -59), UiColors.alert, triangle = true, pulse = true)
     return out
 }
 
@@ -50,31 +58,76 @@ private fun DrawScope.tri(cx: Float, cy: Float, r: Float, color: Color) {
     drawPath(p, color)
 }
 
+/** How brightly the sweep beam "paints" a blip: full as it passes, fading over the next revolution. Alerts never drop below 0.7. */
+fun radarAlpha(sweep: Double, angle: Double, pulse: Boolean): Float {
+    val tau = 2 * Math.PI
+    val dl = ((sweep - angle) % tau + tau) % tau
+    val f = (0.15 + 0.85 * Math.exp(-dl / 1.7)).toFloat()
+    return if (pulse) maxOf(0.7f, f) else f
+}
+
 @Composable
 fun RadarView(s: Snapshot) {
     val tm = rememberTextMeasurer()
     val label = TextStyle(color = UiColors.dim, fontSize = 11.sp)
+    val read = TextStyle(color = UiColors.good, fontSize = 12.sp)
+    val still = reducedMotion()
+    val phase by rememberInfiniteTransition(label = "sweep").animateFloat(
+        0f, 1f, infiniteRepeatable(tween(4000, easing = LinearEasing), RepeatMode.Restart), label = "p")
+    val frac = if (still) 0f else phase
+    val sw = frac * 2 * Math.PI - Math.PI / 2
+    val g = UiColors.good
+    val bl = blips(s)
     Column {
         Canvas(Modifier.fillMaxWidth().aspectRatio(1f)) {
             val w = size.width
             val c = Offset(w / 2, w / 2)
-            val r = w / 2 - 10.dp.toPx()
-            listOf(0.33f to "very close", 0.66f to "close", 1f to "far").forEach { (f, name) ->
+            val r = w / 2 - 14.dp.toPx()
+            // scope face
+            drawCircle(Brush.radialGradient(listOf(Color(0xD9003418), Color(0xEB000804)), c, r), r, c)
+            // rim ticks (decoration only: no bearing data exists)
+            for (i in 0 until 36) {
+                val a = i * Math.PI / 18; val l = if (i % 3 == 0) 9.dp.toPx() else 4.dp.toPx()
+                drawLine(g.copy(alpha = 0.7f), Offset(c.x + (r + 3.dp.toPx()) * cos(a).toFloat(), c.y + (r + 3.dp.toPx()) * sin(a).toFloat()),
+                    Offset(c.x + (r + 3.dp.toPx() + l) * cos(a).toFloat(), c.y + (r + 3.dp.toPx() + l) * sin(a).toFloat()), 1.dp.toPx())
+            }
+            listOf(0.33f to "VERY CLOSE", 0.66f to "CLOSE", 1f to "FAR").forEach { (f, name) ->
+                drawCircle(g.copy(alpha = 0.12f), r * f, c, style = Stroke(5.dp.toPx()))   // glow
                 drawCircle(UiColors.ring, r * f, c, style = Stroke(1.dp.toPx()))
                 drawText(tm, name, Offset(c.x + 4.dp.toPx(), c.y - r * f + 2.dp.toPx()), label)
             }
             drawLine(UiColors.ring, Offset(c.x - r, c.y), Offset(c.x + r, c.y), 1.dp.toPx())
             drawLine(UiColors.ring, Offset(c.x, c.y - r), Offset(c.x, c.y + r), 1.dp.toPx())
-            drawRect(Color(0xFF58708A).copy(alpha = if (Prefs.night) 0.4f else 0.9f), Offset(c.x - 5.dp.toPx(), c.y - 5.dp.toPx()), Size(10.dp.toPx(), 10.dp.toPx()))
-            for (b in blips(s)) {
+            // sweep trail + beam
+            if (!still) {
+                val sweepDeg = Math.toDegrees(sw).toFloat()
+                for (i in 0 until 44) {
+                    val al = 0.26f * (1f - i / 44f) * (1f - i / 44f)
+                    drawArc(g.copy(alpha = al), sweepDeg - (i + 1) * 1.6f, 1.7f, true, Offset(c.x - r, c.y - r), Size(2 * r, 2 * r))
+                }
+            }
+            drawLine(g, c, Offset(c.x + r * cos(sw).toFloat(), c.y + r * sin(sw).toFloat()), 2.dp.toPx())
+            // blips
+            for (b in bl) {
                 val a = (b.id.hashCode().toLong() and 0x7fffffff) % 3600 / 3600.0 * 2 * Math.PI
                 val rad = r * Geo.radarFraction(b.meters).toFloat()
                 val x = c.x + rad * cos(a).toFloat(); val y = c.y + rad * sin(a).toFloat()
-                if (b.triangle) tri(x, y, 9.dp.toPx(), b.color) else drawCircle(b.color, 6.dp.toPx(), Offset(x, y))
-                drawText(tm, b.label.take(14), Offset(x + 9.dp.toPx(), y - 6.dp.toPx()), label)
+                val al = if (still) 1f else radarAlpha(sw, a, b.pulse)
+                if (b.pulse) drawCircle(b.color.copy(alpha = 0.3f * al), (12 + 9 * Math.abs(sin(phase * 8 * Math.PI))).toFloat().dp.toPx(), Offset(x, y))
+                drawCircle(b.color.copy(alpha = 0.25f * al), 11.dp.toPx(), Offset(x, y))   // glow
+                if (b.triangle) tri(x, y, 9.dp.toPx(), b.color.copy(alpha = al)) else drawCircle(b.color.copy(alpha = al), 5.dp.toPx(), Offset(x, y))
+                drawText(tm, b.label.take(14).uppercase(), Offset(x + 9.dp.toPx(), y - 6.dp.toPx()), label.copy(color = UiColors.dim.copy(alpha = al)))
             }
+            // you
+            drawRect(Color(0xFF58A6FF), Offset(c.x - 5.dp.toPx(), c.y - 5.dp.toPx()), Size(10.dp.toPx(), 10.dp.toPx()))
+            drawRect(Color(0xFF58A6FF), Offset(c.x - 9.dp.toPx(), c.y - 9.dp.toPx()), Size(18.dp.toPx(), 18.dp.toPx()), style = Stroke(1.dp.toPx()))
+            // readout
+            val near = bl.minOfOrNull { it.meters }
+            drawText(tm, "CONTACTS  ${bl.size}", Offset(4.dp.toPx(), 2.dp.toPx()), read)
+            drawText(tm, "NEAREST   ${if (near == null) "--" else "${Math.round(near)} M (EST)"}", Offset(4.dp.toPx(), 18.dp.toPx()), read)
+            drawText(tm, "SWEEP     ${if (still) "HELD" else "4.0 S"}", Offset(4.dp.toPx(), 34.dp.toPx()), read)
         }
-        Text("Rough estimate from signal strength - indoors it can be badly wrong. Direction is NOT known: blip angles are arbitrary.",
+        Text("Rough estimate from signal strength - indoors it can be badly wrong. Direction is NOT known: blip angles are arbitrary, and the sweep is only decoration.",
             color = UiColors.faint, fontSize = 11.sp)
     }
 }
