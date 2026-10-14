@@ -75,7 +75,7 @@ fun radarAlpha(sweep: Double, angle: Double, pulse: Boolean): Float {
     return if (pulse) maxOf(0.7f, f) else f
 }
 
-private const val LANE_ROWS = 3
+private const val LANE_ROWS = 6
 
 @Composable
 fun RadarView(s: Snapshot) {
@@ -167,7 +167,7 @@ fun RadarView(s: Snapshot) {
             drawText(tm, "BEARINGS  ${placed.size}/${bl.size}", Offset(4.dp.toPx(), 34.dp.toPx()), read)
         }
         // lane: contacts whose direction has not been measured. Position = distance only.
-        val laneH = 96.dp
+        val laneH = 150.dp
         Canvas(Modifier.fillMaxWidth().height(laneH).pointerInput(lane) {
             detectTapGestures { at -> nearest(lane.mapIndexed { i, b -> b to laneXY(i, b, size.width.toFloat(), size.height.toFloat()) }, at)?.let { finding = it.key to it.label } }
         }) {
@@ -181,9 +181,9 @@ fun RadarView(s: Snapshot) {
                 val al = if (still) 1f else (0.7f + 0.3f * sin(phase * 2 * Math.PI)).toFloat()
                 drawCircle(b.color.copy(alpha = 0.25f * al), 10.dp.toPx(), o)
                 if (b.triangle) tri(o.x, o.y, 8.dp.toPx(), b.color.copy(alpha = al)) else drawCircle(b.color.copy(alpha = al), 5.dp.toPx(), o)
-                drawText(tm, b.label.take(12).uppercase(), Offset(o.x + 8.dp.toPx(), o.y - 6.dp.toPx()), label.copy(color = UiColors.dim.copy(alpha = al)))
+                drawText(tm, b.label.take(12).uppercase(), Offset(if (o.x > size.width * 0.7f) o.x - 8.dp.toPx() - 78.dp.toPx() else o.x + 8.dp.toPx(), o.y - 6.dp.toPx()), label.copy(color = UiColors.dim.copy(alpha = al)), softWrap = false, maxLines = 1)
             }
-            if (lane.isEmpty()) drawText(tm, "none - every contact has a measured direction", Offset(6.dp.toPx(), 40.dp.toPx()), label)
+            if (lane.isEmpty()) drawText(tm, if (bl.isEmpty()) "no contacts - start scanning" else "none - every contact has a measured direction", Offset(6.dp.toPx(), 40.dp.toPx()), label)
         }
         Text("DIST: ESTIMATED FROM SIGNAL  ·  BEARING: ${placed.size} MEASURED / ${lane.size} UNKNOWN", color = UiColors.dim, fontSize = 10.sp)
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
