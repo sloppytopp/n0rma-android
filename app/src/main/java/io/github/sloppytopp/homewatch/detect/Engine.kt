@@ -184,8 +184,14 @@ class Engine(
             // random names would eat memory and database). At the cap it stops learning and reports ONE flood warning instead of one event per name.
             val capped = baselineLocked && knownNets.size >= MAX_KNOWN_NETS
             if (capped) {
-                val fresh = rows.count { it.bssid !in knownNets }
-                if (fresh > 0) emit("network", Level.WATCH, "netflood", "Many new Wi-Fi networks are appearing ($fresh just now): possible flood of fake networks", 600_000, wifiAt)
+                val fresh = rows.filter { it.bssid !in knownNets }
+                if (fresh.isNotEmpty()) {
+                    emit("network", Level.WATCH, "netflood", "Many new Wi-Fi networks are appearing (${fresh.size} just now): possible flood of fake networks. Treat unknown networks as suspect", 600_000, wifiAt)
+                    // A flood must not hide a real rogue network: the strongest (closest) unknown ones are still named individually, once an hour each.
+                    fresh.filter { it.level >= -60 }.sortedByDescending { it.level }.take(3).forEach {
+                        emit("network", Level.WATCH, "newnet:${it.bssid}", "New Wi-Fi network since your baseline (close by): '${it.ssid}' ${it.bssid} ${it.level} dBm", 3_600_000, wifiAt)
+                    }
+                }
             }
             val added = if (capped) emptyList() else rows.filter { knownNets.add(it.bssid) }
             if (added.isNotEmpty()) {
@@ -353,6 +359,7 @@ class Engine(
 
     private fun emit(domain: String, level: Level, key: String, msg: String, cooldownMs: Long, now: Long) {
         if (now - (lastEmit[key] ?: 0L) < cooldownMs) return
+        if (lastEmit.size > MAX_EMIT_KEYS) { lastEmit.entries.removeIf { now - it.value > FORGET_MS }; if (lastEmit.size > MAX_EMIT_KEYS) lastEmit.clear() }   // bounded: only cooldowns are lost, never an alert
         lastEmit[key] = now
         val e = EventRow(now, domain, level, msg)
         events.addFirst(e)
@@ -365,6 +372,7 @@ class Engine(
         const val FORGET_MS = 3_600_000L    // forgotten entirely after 1 h
         const val WIFI_FRESH_MS = 180_000L  // a Wi-Fi scan counts for 3 min
         const val MAX_EVENTS = 200
+        const val MAX_EMIT_KEYS = 4000
         const val MAX_KNOWN_NETS = 5000
         const val TRAIL_EVERY_MS = 60_000L
         const val MAX_TRAIL = 6000

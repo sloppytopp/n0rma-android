@@ -107,6 +107,9 @@ class RebaselineBoundTest {
         val flood = e.snapshot().events.filter { it.msg.contains("possible flood") }
         assertEquals(1, flood.size)                                             // one warning, not one event per name
         assertTrue(e.snapshot().events.size < 50)                               // and the event list stays small
+        // a close-by rogue network is still named individually, even in the middle of a flood
+        e.onWifiScan(listOf(io.github.sloppytopp.homewatch.detect.WifiObs("0a:ee:00:00:00:01", "EvilTwin", -40)))
+        assertTrue(e.snapshot().events.any { it.msg.contains("EvilTwin") })
         // the original baseline is intact: an original network seen again is not "new"
         val before = e.snapshot().events.size
         e.onWifiScan(listOf(io.github.sloppytopp.homewatch.detect.WifiObs("02:aa:00:00:07:00", "orig", -50)))
