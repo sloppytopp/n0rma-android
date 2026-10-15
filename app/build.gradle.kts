@@ -13,6 +13,7 @@ val keystoreProps = Properties().apply {
 android {
     namespace = "io.github.sloppytopp.homewatch"
     compileSdk = 35
+    buildToolsVersion = "34.0.0"      // pinned (AGP 8.7.3's own default) so the build does not depend on whichever tools are installed
     defaultConfig {
         applicationId = "io.github.sloppytopp.homewatch"
         minSdk = 26
@@ -33,6 +34,7 @@ android {
     }
     buildTypes {
         release {
+            vcsInfo.include = false          // no git revision baked into the APK: a checkout with different metadata must not change the bytes
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -46,6 +48,7 @@ android {
     // The standard build never has that permission and has no Mic tab.
     buildTypes.create("sdr") {
         initWith(buildTypes.getByName("release"))
+        vcsInfo.include = false
         matchingFallbacks += "release"
         applicationIdSuffix = ".sdr"
         versionNameSuffix = "-sdr"
