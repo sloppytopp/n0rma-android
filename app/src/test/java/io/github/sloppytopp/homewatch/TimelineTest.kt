@@ -72,3 +72,26 @@ class RebaselineTest {
         assertTrue(e.snapshot().events.none { it.domain == "network" })
     }
 }
+
+class RebaselineSafetyTest {
+    @Test fun emptyKnownListAfterBaselineStillFlagsNewNetworks() {
+        val e = io.github.sloppytopp.homewatch.detect.Engine({ 1_700_000_000_000L }, { _, _ -> }).also { it.running = true; it.wifiEnabled = true }
+        e.loadKnownNets(emptySet())
+        e.baselineLocked = true
+        e.onWifiScan(listOf(io.github.sloppytopp.homewatch.detect.WifiObs("aa:bb:cc:00:00:10", "NewNet", -50)))
+        assertTrue(e.snapshot().events.any { it.domain == "network" && it.level == Level.WATCH })
+    }
+
+    @Test fun floodingNeverWipesTheBaseline() {
+        val e = io.github.sloppytopp.homewatch.detect.Engine({ 1_700_000_000_000L }, { _, _ -> }).also { it.running = true; it.wifiEnabled = true }
+        e.loadKnownNets(setOf("aa:bb:cc:00:00:01"))
+        e.baselineLocked = true
+        repeat(60) { chunk ->
+            e.onWifiScan((0 until 100).map { io.github.sloppytopp.homewatch.detect.WifiObs("02:00:%02x:%02x:00:00".format(chunk, it), "n$chunk-$it", -90) })
+        }
+        // the locked network must still be known: seeing it again must not log it as new
+        val before = e.snapshot().events.size
+        e.onWifiScan(listOf(io.github.sloppytopp.homewatch.detect.WifiObs("aa:bb:cc:00:00:01", "Home", -40)))
+        assertEquals(before, e.snapshot().events.size)
+    }
+}

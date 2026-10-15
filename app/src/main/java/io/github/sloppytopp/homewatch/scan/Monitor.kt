@@ -19,24 +19,21 @@ object Monitor {
     fun refresh() { snapshot = engine.snapshot() }
 
     /**
-     * Rebaseline: the user has checked that everything around them is theirs. Lock in what is here right now (Wi-Fi networks, trackers,
-     * camera-like sources) as safe, clear the open items, and from now on flag any new Wi-Fi network as a Suspect right away.
+     * Rebaseline: the user has checked that the Wi-Fi networks around them are theirs or normal. Lock those in, and from now on flag any new
+     * Wi-Fi network as a Suspect right away.
+     * Deliberately NOT done here: marking trackers or cameras as "mine", or auto-resolving open items. A tracker or camera that is in range at
+     * this moment may be exactly the thing being hunted, so those stay flagged until the person decides about each one ("This is mine" /
+     * "Mark resolved"). Silencing them for good in one tap would fail open.
      */
     fun rebaseline() {
-        val now = System.currentTimeMillis()
         val s = engine.snapshot()
         engine.lockKnownNets(s.wifi.map { it.bssid })
-        s.trackers.forEach { io.github.sloppytopp.homewatch.data.Prefs.markMine(it.addr) }
-        engine.camKeysNow().forEach { io.github.sloppytopp.homewatch.data.Prefs.markMine(it) }
-        val open = (runCatching { Store.events(now - 72 * 3_600_000L, 300) }.getOrDefault(emptyList()) + s.events)
-            .filter { it.level == io.github.sloppytopp.homewatch.detect.Level.WATCH || it.level == io.github.sloppytopp.homewatch.detect.Level.ALERT }
-        io.github.sloppytopp.homewatch.data.Prefs.resolveMany(open.map { io.github.sloppytopp.homewatch.detect.Timeline.key(it) })
         engine.baselineLocked = true
-        io.github.sloppytopp.homewatch.data.Prefs.saveBaselineAt(now)
+        io.github.sloppytopp.homewatch.data.Prefs.saveBaselineAt(System.currentTimeMillis())
         refresh()
     }
 
-    /** Stop treating new Wi-Fi networks as Suspects. Devices already marked as yours stay marked. */
+    /** Stop treating new Wi-Fi networks as Suspects. */
     fun resetBaseline() {
         io.github.sloppytopp.homewatch.data.Prefs.saveBaselineAt(0)
         engine.baselineLocked = false

@@ -179,14 +179,14 @@ class Engine(
             if (klass == "camera") cams += WifiHit(row, null, "camera-like network")
         }
         if (!demoMode && netsLoaded) {
-            val firstEver = knownNets.isEmpty()
+            val firstEver = knownNets.isEmpty() && !baselineLocked   // after a Rebaseline an empty list is never "learn silently": that would hide every new network
             val added = rows.filter { knownNets.add(it.bssid) }
             if (added.isNotEmpty()) {
                 if (!firstEver) added.filter { it.level >= -80 }.sortedByDescending { it.level }.take(3).forEach {
                     emit("network", if (baselineLocked) Level.WATCH else Level.OK, "newnet:${it.bssid}", (if (baselineLocked) "New Wi-Fi network since your baseline: '" else "New Wi-Fi network appeared: '") + "${it.ssid}' ${it.bssid}" +
                         (if (it.vendor.isNotEmpty()) " ${it.vendor}" else "") + " ${it.level} dBm", 0, wifiAt)
                 }
-                if (knownNets.size > MAX_KNOWN_NETS) knownNets.clear()   // runaway guard (e.g. a long drive): relearn
+                if (knownNets.size > MAX_KNOWN_NETS && !baselineLocked) knownNets.clear()   // runaway guard (e.g. a long drive): relearn. Never after a Rebaseline: relearning would silence new-network flags
                 netSink(added.map { it.bssid })
             }
         }
