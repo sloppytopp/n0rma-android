@@ -82,6 +82,7 @@ import io.github.sloppytopp.homewatch.ui.RoomsScreen
 import io.github.sloppytopp.homewatch.ui.SettingsScreen
 import io.github.sloppytopp.homewatch.ui.SmartScreen
 import io.github.sloppytopp.homewatch.ui.MicScreen
+import io.github.sloppytopp.homewatch.ui.CalmHome
 import io.github.sloppytopp.homewatch.ui.SurveyCard
 import io.github.sloppytopp.homewatch.ui.StatusTile
 import io.github.sloppytopp.homewatch.ui.UiColors
@@ -152,21 +153,23 @@ private fun Root() {
     }
     if (Monitor.locked) { LockScreen(); return }
     Monitor.hunt?.let { d -> HuntHost(d) { Monitor.hunt = null } }
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
-    MatrixRain(boost = tab == 3)
+    Box(Modifier.fillMaxSize().background(UiColors.bg)) {
+    if (Prefs.hacker) MatrixRain(boost = tab == 3)
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Heartbeat(Monitor.snapshot.running)
             Text(" N0RMA", color = UiColors.good, fontSize = 17.sp, letterSpacing = 1.sp, maxLines = 1, softWrap = false, modifier = Modifier.weight(1f))
+            if (Prefs.hacker) {
             Text("RAIN", color = if (Prefs.rain) UiColors.good else UiColors.faint, fontSize = 10.sp, maxLines = 1, softWrap = false,
                 modifier = Modifier.clickable { Prefs.saveRain(!Prefs.rain) }.padding(start = 8.dp, top = 8.dp, bottom = 8.dp))
             Text("NIGHT", color = if (Prefs.night) UiColors.alert else UiColors.faint, fontSize = 10.sp, maxLines = 1, softWrap = false,
                 modifier = Modifier.clickable { Prefs.saveNight(!Prefs.night) }.padding(start = 8.dp, top = 8.dp, bottom = 8.dp))
+            }
             TextButton(onClick = { (ctx0 as? Activity)?.finishAndRemoveTask() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp), modifier = Modifier.defaultMinSize(minWidth = 1.dp)) {
                 Text("✕", color = UiColors.dim, fontSize = 16.sp)
             }
         }
-        Box(Modifier.fillMaxWidth().padding(vertical = 2.dp), contentAlignment = androidx.compose.ui.Alignment.Center) { DefconStrip(Monitor.snapshot) }
+        if (Prefs.hacker) Box(Modifier.fillMaxWidth().padding(vertical = 2.dp), contentAlignment = androidx.compose.ui.Alignment.Center) { DefconStrip(Monitor.snapshot) }
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalMinimumInteractiveComponentSize provides androidx.compose.ui.unit.Dp.Unspecified) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             (if (BuildConfig.SDR) listOf("Status", "Nearby", "Rooms", "Radar", "Log", "Setup", "Smart", "Mic") else listOf("Status", "Nearby", "Rooms", "Radar", "History", "Settings", "Smart")).forEachIndexed { i, name ->
@@ -228,6 +231,8 @@ private fun StatusScreen() {
         if (sweepStart > 0) { delay(30_000); Monitor.lastSweep = sweepSummary(Monitor.snapshot); sweepStart = 0 }
     }
 
+    if (!Prefs.hacker) CalmHome(s, onToggleScan = { if (Demo.active) Demo.stop() else if (s.running) ctx.startService(Intent(ctx, ScanService::class.java).setAction(ScanService.ACTION_STOP)) else onStartTapped() }, goTab = { Monitor.requestTab = it })
+    else {
     if (!Prefs.welcomed) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(UiColors.buttonBg).padding(14.dp),
@@ -292,6 +297,7 @@ private fun StatusScreen() {
     FollowCard(s.follow)
     HelpCard()
     Text("Detect-only. A quiet screen is not a guarantee of safety. Nothing leaves this phone.", color = UiColors.faint, fontSize = 12.sp)
+    }
 
     if (explain) AlertDialog(
         containerColor = UiColors.dialogBg, titleContentColor = UiColors.text, textContentColor = UiColors.text,

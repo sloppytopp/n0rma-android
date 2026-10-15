@@ -98,6 +98,10 @@ fun SettingsScreen() {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Display and alerts", color = UiColors.text, fontSize = 16.sp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Hacker theme (DEFCON strip, Matrix rain, green on black)", color = UiColors.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            Switch(checked = Prefs.hacker, onCheckedChange = { Prefs.saveHacker(it) })
+        }
+        if (Prefs.hacker) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Night mode (dim red on black)", color = UiColors.text, fontSize = 14.sp)
             Switch(checked = Prefs.night, onCheckedChange = { Prefs.saveNight(it) })
         }

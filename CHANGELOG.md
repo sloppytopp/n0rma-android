@@ -1,5 +1,6 @@
 # Changelog
 ## Unreleased
+- Calm home screen is now the default: grey/white, system fonts, one Scan button, three cards (Active scans / Unresolved / Evidence), an Info/Suspect/Alert timeline with a per-event "Mark resolved", quick actions and the evidence export. "Watch" is now "Suspect". The old DEFCON strip, Matrix rain and red Night mode are behind Setup -> Hacker theme.
 - Optional SDR build (`assembleSdr`, separate app id): Mic tab with an RTL-SDR hidden-microphone sweep (baseline, scan, tone test with controls). The standard build is unchanged and still has no internet permission.
 ## 0.7.0-beta1 (pre-release)
 - Detect: Bluetooth pairing pop-up flood (Flipper Zero / phone-app Bluetooth spam) - behaviour test, not yet verified against real Flipper hardware

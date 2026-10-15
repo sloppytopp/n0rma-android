@@ -18,6 +18,10 @@ object Prefs {
     private lateinit var sp: SharedPreferences
 
     var night by mutableStateOf(false); private set
+    /** Off by default: calm grey/white look. On: the DEFCON strip, Matrix rain, green-on-black and the red Night mode. */
+    var hacker by mutableStateOf(false); private set
+    /** Timeline events the user marked as resolved (own device, noise, false positive). Keys are "ts|domain". */
+    var resolved by mutableStateOf<Set<String>>(emptySet()); private set
     var rain by mutableStateOf(true); private set
     var alertStyle by mutableStateOf(AlertStyle.CHIME); private set
     var home by mutableStateOf<Home?>(null); private set
@@ -37,6 +41,8 @@ object Prefs {
     fun init(ctx: Context) {
         sp = ctx.getSharedPreferences("homewatch", Context.MODE_PRIVATE)
         night = sp.getBoolean("night", false)
+        hacker = sp.getBoolean("hacker", false)
+        resolved = sp.getStringSet("resolved", emptySet()) ?: emptySet()
         rain = sp.getBoolean("rain", true)
         alertStyle = runCatching { AlertStyle.valueOf(sp.getString("alert", "CHIME")!!) }.getOrDefault(AlertStyle.CHIME)
         if (sp.contains("home_lat")) home = Home(Double.fromBits(sp.getLong("home_lat", 0)), Double.fromBits(sp.getLong("home_lon", 0)), sp.getString("home_note", "") ?: "")
@@ -66,6 +72,8 @@ object Prefs {
     fun saveWelcomed() { welcomed = true; sp.edit().putBoolean("welcomed", true).apply() }
     fun saveMicBaseline(v: String) { micBaseline = v; sp.edit().putString("mic_baseline", v).apply() }
     fun saveRain(v: Boolean) { rain = v; sp.edit().putBoolean("rain", v).apply() }
+    fun saveHacker(v: Boolean) { hacker = v; sp.edit().putBoolean("hacker", v).apply() }
+    fun toggleResolved(key: String) { resolved = if (key in resolved) resolved - key else resolved + key; sp.edit().putStringSet("resolved", resolved.toSet()).apply() }
     fun saveNight(v: Boolean) { night = v; sp.edit().putBoolean("night", v).apply() }
     fun saveAlertStyle(v: AlertStyle) { alertStyle = v; sp.edit().putString("alert", v.name).apply() }
     fun saveHome(h: Home?) {
