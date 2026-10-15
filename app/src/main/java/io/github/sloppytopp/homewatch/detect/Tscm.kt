@@ -16,7 +16,7 @@ object Tscm {
 
     private val NOT_DONE = listOf(
         "Non-linear junction detection (finds electronics even when switched off or dormant)",
-        "Wideband RF spectrum analysis (a phone hears only its own Wi-Fi and Bluetooth radios)",
+        "Wideband RF spectrum analysis (a phone hears only its own Wi-Fi and Bluetooth radios; the optional RTL-SDR mic sweep covers about 30 MHz-1.3 GHz of analog audio transmitters only, and does not see GSM/LTE, DECT, digital or burst bugs, or recorders that never transmit)",
         "Thermal imaging",
         "Wired, telephone, power-line and cellular/GPS device checks",
         "Inspection by a trained examiner with specialist equipment",

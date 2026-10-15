@@ -81,6 +81,7 @@ import io.github.sloppytopp.homewatch.ui.RadarView
 import io.github.sloppytopp.homewatch.ui.RoomsScreen
 import io.github.sloppytopp.homewatch.ui.SettingsScreen
 import io.github.sloppytopp.homewatch.ui.SmartScreen
+import io.github.sloppytopp.homewatch.ui.MicScreen
 import io.github.sloppytopp.homewatch.ui.SurveyCard
 import io.github.sloppytopp.homewatch.ui.StatusTile
 import io.github.sloppytopp.homewatch.ui.UiColors
@@ -166,8 +167,9 @@ private fun Root() {
             }
         }
         Box(Modifier.fillMaxWidth().padding(vertical = 2.dp), contentAlignment = androidx.compose.ui.Alignment.Center) { DefconStrip(Monitor.snapshot) }
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalMinimumInteractiveComponentSize provides androidx.compose.ui.unit.Dp.Unspecified) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            listOf("Status", "Nearby", "Rooms", "Radar", "History", "Settings", "Smart").forEachIndexed { i, name ->
+            listOf("Status", "Nearby", "Rooms", "Radar", "Log", "Setup", "Smart", "Mic").forEachIndexed { i, name ->
                 TextButton(onClick = { tab = i }, modifier = Modifier.defaultMinSize(minWidth = 1.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 1.dp)) {
                     Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
                         Text(name, color = if (tab == i) UiColors.text else UiColors.faint, fontSize = 10.sp, maxLines = 1, softWrap = false,
@@ -178,6 +180,7 @@ private fun Root() {
                 }
             }
         }
+        }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             when (tab) {
                 0 -> StatusScreen()
@@ -186,7 +189,8 @@ private fun Root() {
                 3 -> { RadarView(Monitor.snapshot); Text("Drone map", color = UiColors.text, fontSize = 16.sp); DroneMapView(Monitor.snapshot); SurveyCard() }
                 4 -> HistoryScreen()
                 5 -> SettingsScreen()
-                else -> SmartScreen()
+                6 -> SmartScreen()
+                else -> MicScreen()
             }
         }
     }

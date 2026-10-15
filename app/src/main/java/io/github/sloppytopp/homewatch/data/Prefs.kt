@@ -29,6 +29,7 @@ object Prefs {
     var discreet by mutableStateOf(false); private set
     var rooms by mutableStateOf<List<String>>(emptyList()); private set
     var hasPin by mutableStateOf(false); private set
+    var micBaseline by mutableStateOf<String?>(null); private set   // RTL-SDR mic-sweep baseline (see detect/RfSweep.kt)
     var launcher by mutableStateOf(0); private set   // 0 N0RMA, 1 Notes, 2 Weather
     /** Physical-inspection checklist: room -> ids of the items ticked off. */
     var inspected by mutableStateOf<Map<String, Set<String>>>(emptyMap()); private set
@@ -44,6 +45,7 @@ object Prefs {
         discreet = sp.getBoolean("discreet", false)
         rooms = (sp.getString("rooms", "") ?: "").split("|").filter { it.isNotBlank() }
         hasPin = sp.contains("pin_hash")
+        micBaseline = sp.getString("mic_baseline", null)
         launcher = sp.getInt("launcher", 0)
         mySsids = sp.getStringSet("my_ssids", emptySet()) ?: emptySet()
         inspected = sp.all.filterKeys { it.startsWith("insp_") }.mapKeys { it.key.removePrefix("insp_") }
@@ -62,6 +64,7 @@ object Prefs {
     fun markMine(addr: String) { myDevices = myDevices + addr; sp.edit().putStringSet("my_devices", myDevices).apply() }
     fun unmarkMine(addr: String) { myDevices = myDevices - addr; sp.edit().putStringSet("my_devices", myDevices).apply() }
     fun saveWelcomed() { welcomed = true; sp.edit().putBoolean("welcomed", true).apply() }
+    fun saveMicBaseline(v: String) { micBaseline = v; sp.edit().putString("mic_baseline", v).apply() }
     fun saveRain(v: Boolean) { rain = v; sp.edit().putBoolean("rain", v).apply() }
     fun saveNight(v: Boolean) { night = v; sp.edit().putBoolean("night", v).apply() }
     fun saveAlertStyle(v: AlertStyle) { alertStyle = v; sp.edit().putString("alert", v.name).apply() }

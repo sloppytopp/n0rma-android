@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" />
+    <!-- Only for the optional RTL-SDR mic sweep: Android requires INTERNET even to open a socket to 127.0.0.1, which is how the free RTL-SDR driver app hands this app radio samples. The app opens no other connection. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -24,6 +26,8 @@
          docs/gen_queries.py when the list changes), and (2) apps that provide an accessibility service, notification listener or device admin,
          so they can be shown for review. Nothing else installed on the phone is visible to the app. -->
     <queries>
+        <package android:name="marto.rtl_tcp_andro" />
+        <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="iqsrc" /></intent>
         <intent><action android:name="android.accessibilityservice.AccessibilityService" /></intent>
         <intent><action android:name="android.service.notification.NotificationListenerService" /></intent>
         <intent><action android:name="android.app.action.DEVICE_ADMIN_ENABLED" /></intent>
