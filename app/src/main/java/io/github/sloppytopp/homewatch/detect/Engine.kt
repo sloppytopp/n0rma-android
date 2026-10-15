@@ -143,6 +143,9 @@ class Engine(
     /** Set once the user has pressed Rebaseline: from then on a Wi-Fi network that was not around at that moment is a Suspect, not just Info. */
     @Volatile var baselineLocked = false
 
+    /** The user's own network names. An unknown network using one of them is the classic evil twin and is always reported, whatever the flood cap or signal strength. */
+    @Volatile var ownSsids: Set<String> = emptySet()
+
     /** Rebaseline: treat these Wi-Fi networks as normal. */
     @Synchronized fun lockKnownNets(bssids: Collection<String>) { knownNets += bssids; netsLoaded = true; netSink(bssids.toList()) }
 
@@ -187,6 +190,11 @@ class Engine(
                 val fresh = rows.filter { it.bssid !in knownNets }
                 if (fresh.isNotEmpty()) {
                     emit("network", Level.WATCH, "netflood", "Many new Wi-Fi networks are appearing (${fresh.size} just now): possible flood of fake networks. Treat unknown networks as suspect", 600_000, wifiAt)
+                    // Highest value first: a copy of one of the user's own network names, however weak. Keyed by name, so it is bounded by how many names the user has.
+                    fresh.filter { it.ssid in ownSsids }.groupBy { it.ssid }.forEach { (name, rs) ->
+                        val r = rs.maxByOrNull { it.level }!!
+                        emit("network", Level.WATCH, "twin:$name", "A new network is using the name of YOUR network '$name' (${r.bssid}, ${r.level} dBm): possible copy / evil twin", 600_000, wifiAt)
+                    }
                     // A flood must not hide a real rogue network: the strongest (closest) unknown ones are still named individually, once an hour each.
                     fresh.filter { it.level >= -60 }.sortedByDescending { it.level }.take(3).forEach {
                         emit("network", Level.WATCH, "newnet:${it.bssid}", "New Wi-Fi network since your baseline (close by): '${it.ssid}' ${it.bssid} ${it.level} dBm", 3_600_000, wifiAt)
