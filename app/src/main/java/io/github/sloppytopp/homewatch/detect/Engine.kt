@@ -180,7 +180,14 @@ class Engine(
         }
         if (!demoMode && netsLoaded) {
             val firstEver = knownNets.isEmpty() && !baselineLocked   // after a Rebaseline an empty list is never "learn silently": that would hide every new network
-            val added = rows.filter { knownNets.add(it.bssid) }
+            // After a Rebaseline the list must neither be wiped (new networks would go silent) nor grow without limit (a beacon flood of
+            // random names would eat memory and database). At the cap it stops learning and reports ONE flood warning instead of one event per name.
+            val capped = baselineLocked && knownNets.size >= MAX_KNOWN_NETS
+            if (capped) {
+                val fresh = rows.count { it.bssid !in knownNets }
+                if (fresh > 0) emit("network", Level.WATCH, "netflood", "Many new Wi-Fi networks are appearing ($fresh just now): possible flood of fake networks", 600_000, wifiAt)
+            }
+            val added = if (capped) emptyList() else rows.filter { knownNets.add(it.bssid) }
             if (added.isNotEmpty()) {
                 if (!firstEver) added.filter { it.level >= -80 }.sortedByDescending { it.level }.take(3).forEach {
                     emit("network", if (baselineLocked) Level.WATCH else Level.OK, "newnet:${it.bssid}", (if (baselineLocked) "New Wi-Fi network since your baseline: '" else "New Wi-Fi network appeared: '") + "${it.ssid}' ${it.bssid}" +

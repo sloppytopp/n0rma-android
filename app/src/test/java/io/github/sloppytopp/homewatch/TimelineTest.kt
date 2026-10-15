@@ -95,3 +95,21 @@ class RebaselineSafetyTest {
         assertEquals(before, e.snapshot().events.size)
     }
 }
+
+class RebaselineBoundTest {
+    @Test fun knownListStopsGrowingAtTheCapAndWarnsOnce() {
+        val e = io.github.sloppytopp.homewatch.detect.Engine({ 1_700_000_000_000L }, { _, _ -> }).also { it.running = true; it.wifiEnabled = true }
+        e.loadKnownNets((0 until 5000).map { "02:aa:%02x:%02x:%02x:00".format(it shr 16, (it shr 8) and 255, it and 255) }.toSet())
+        e.baselineLocked = true
+        val persisted = mutableListOf<String>()
+        // many scans of fresh random networks
+        repeat(20) { chunk -> e.onWifiScan((0 until 100).map { io.github.sloppytopp.homewatch.detect.WifiObs("0a:bb:%02x:%02x:00:00".format(chunk, it), "x$chunk-$it", -90) }) }
+        val flood = e.snapshot().events.filter { it.msg.contains("possible flood") }
+        assertEquals(1, flood.size)                                             // one warning, not one event per name
+        assertTrue(e.snapshot().events.size < 50)                               // and the event list stays small
+        // the original baseline is intact: an original network seen again is not "new"
+        val before = e.snapshot().events.size
+        e.onWifiScan(listOf(io.github.sloppytopp.homewatch.detect.WifiObs("02:aa:00:00:07:00", "orig", -50)))
+        assertEquals(before, e.snapshot().events.size)
+    }
+}
