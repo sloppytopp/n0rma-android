@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the optional SDR build (./gradlew assembleSdr) has these. The standard N0RMA build has no INTERNET permission. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android requires INTERNET even to open a socket to 127.0.0.1, which is how the free RTL-SDR driver app hands this app radio samples.
+         The app opens no other connection. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <queries>
+        <package android:name="marto.rtl_tcp_andro" />
+        <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="iqsrc" /></intent>
+    </queries>
+</manifest>

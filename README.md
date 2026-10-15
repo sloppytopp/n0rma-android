@@ -77,7 +77,7 @@ If the fingerprint is different, it is not an official build - don't install it.
 | Foreground service, notifications, vibrate | Keep scanning in the background; soft chime/vibrate alerts (never a voice) |
 | Camera | Only for the Lens finder, only while you have it open: torch + camera to spot lens glints. Pictures are analysed in memory and discarded; nothing is saved or sent. Optional: deny it and the rest works |
 
-No internet permission. See [PRIVACY.md](PRIVACY.md).
+No internet permission in the standard app. See [PRIVACY.md](PRIVACY.md). (The optional SDR build below is the only variant that has it.)
 
 ## Help test it
 This is a beta tested on one phone so far. Test reports (hits, misses and false alarms) are the most valuable contribution: [docs/TESTING.md](docs/TESTING.md).
@@ -85,6 +85,9 @@ This is a beta tested on one phone so far. Test reports (hits, misses and false 
 ## Build
 JDK 17 + Android SDK 35: `./gradlew assembleDebug testDebugUnitTest` (JUnit tests over the radio parsing and detection logic; CI runs them on every push), then `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
 Release builds read signing details from an untracked `keystore.properties`; without it the release APK is unsigned (which is what F-Droid needs).
+
+### Optional SDR build: hidden-microphone sweep
+`./gradlew assembleSdr` builds a separate app (`io.github.sloppytopp.homewatch.sdr`, installs next to the standard one) with an extra **Mic** tab: an RTL-SDR dongle hunts for the radio transmitter a hidden microphone would use. It needs the free [RTL-SDR driver](https://f-droid.org/packages/marto.rtl_tcp_andro/) app, a USB-OTG adapter and a dongle (RTL-SDR Blog V3 recommended). It has the INTERNET permission, only because Android requires it to talk to that driver app on `127.0.0.1`; it opens no other connection. The standard app has no Mic tab and no internet permission. Details and limits: the Mic tab itself, and the desktop [n0rma](https://github.com/sloppytopp/n0rma) README.
 
 ## Related
 - [n0rma](https://github.com/sloppytopp/n0rma) - the Linux sibling (`pip install n0rma`) with the same detection, plus RTL-SDR support.

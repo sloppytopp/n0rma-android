@@ -19,6 +19,7 @@ android {
         targetSdk = 35
         versionCode = 8
         versionName = "0.7.0-beta1"
+        buildConfigField("boolean", "SDR", "false")
     }
     signingConfigs {
         create("release") {
@@ -40,11 +41,21 @@ android {
                             else if (keystoreProps.getProperty("storeFile") != null) signingConfigs.getByName("release") else null
         }
     }
+    // Optional SDR build (./gradlew assembleSdr): same app plus the Mic tab (RTL-SDR hidden-microphone sweep). It is a separate app
+    // (applicationId suffix ".sdr") because it needs the INTERNET permission, only to reach the RTL-SDR driver app on 127.0.0.1.
+    // The standard build never has that permission and has no Mic tab.
+    buildTypes.create("sdr") {
+        initWith(buildTypes.getByName("release"))
+        matchingFallbacks += "release"
+        applicationIdSuffix = ".sdr"
+        versionNameSuffix = "-sdr"
+        buildConfigField("boolean", "SDR", "true")
+    }
     // F-Droid: no Google-signed dependency blob inside the APK/bundle
     dependenciesInfo { includeInApk = false; includeInBundle = false }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
 }
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.10.01"))

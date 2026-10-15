@@ -1,4 +1,6 @@
 # Changelog
+## Unreleased
+- Optional SDR build (`assembleSdr`, separate app id): Mic tab with an RTL-SDR hidden-microphone sweep (baseline, scan, tone test with controls). The standard build is unchanged and still has no internet permission.
 ## 0.7.0-beta1 (pre-release)
 - Detect: Bluetooth pairing pop-up flood (Flipper Zero / phone-app Bluetooth spam) - behaviour test, not yet verified against real Flipper hardware
 - Smart devices tab (nearby gadgets by maker, privacy checklist, DeFlock link); "This is mine" on Status and My devices list; one alert per camera radio

@@ -1,7 +1,9 @@
 # Privacy policy - N0RMA for Android
 _Last updated: 2026-10-09_
 
-**Short version: N0RMA collects nothing and sends nothing. It has no internet permission.**
+**Short version: N0RMA collects nothing and sends nothing. The standard app has no internet permission.**
+
+_The optional SDR build (a separate app, `...homewatch.sdr`, built with `./gradlew assembleSdr`) adds the internet permission solely to connect to the RTL-SDR driver app on this phone (127.0.0.1). It still sends nothing anywhere._
 
 ## What the app does with data
 - It listens to Bluetooth and Wi-Fi signals around you and works out, on your phone, whether anything looks like a tracker, drone or camera-like network.
