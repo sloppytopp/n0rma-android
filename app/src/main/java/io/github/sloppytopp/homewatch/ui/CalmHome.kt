@@ -78,7 +78,7 @@ fun CalmHome(s: Snapshot, onToggleScan: () -> Unit, goTab: (Int) -> Unit) {
     Button(
         onClick = onToggleScan, modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
         shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = UiColors.good, contentColor = androidx.compose.ui.graphics.Color(0xFF0B1A10)),
+        colors = ButtonDefaults.buttonColors(containerColor = UiColors.good, contentColor = UiColors.onGood),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 16.dp),
     ) { Text(if (io.github.sloppytopp.homewatch.scan.Demo.active) "Stop sample data" else if (s.running) "Stop scanning" else "Scan", fontSize = 18.sp, fontWeight = FontWeight.SemiBold) }
     if (!s.running && !io.github.sloppytopp.homewatch.scan.Demo.active)
@@ -91,13 +91,15 @@ fun CalmHome(s: Snapshot, onToggleScan: () -> Unit, goTab: (Int) -> Unit) {
         InfoCard("Evidence", "Report", "Tap export", Modifier.weight(1f), onClick = { shareEvidenceReport(ctx) })
     }
 
+    RebaselineCard(s)
+
     Text("Events", color = UiColors.text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         TimelineFilter.values().forEach { f ->
             val on = f == filter
             Box(Modifier.clip(RoundedCornerShape(20.dp)).background(if (on) UiColors.good else UiColors.card).clickable { filter = f }
                 .padding(horizontal = 14.dp, vertical = 8.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                Text(f.label, color = if (on) androidx.compose.ui.graphics.Color(0xFF0B1A10) else UiColors.text, fontSize = 14.sp)
+                Text(f.label, color = if (on) UiColors.onGood else UiColors.text, fontSize = 14.sp)
             }
         }
     }

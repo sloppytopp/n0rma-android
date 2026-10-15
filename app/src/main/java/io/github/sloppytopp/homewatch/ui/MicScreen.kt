@@ -33,7 +33,7 @@ fun MicScreen() {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Hidden-mic sweep", color = UiColors.text, fontSize = 20.sp)
         Text("A microphone is silent; this hunts for the radio that would carry its audio. Needs an RTL-SDR dongle (RTL-SDR Blog V3 recommended), a USB-OTG " +
-            "adapter and the free \"RTL-SDR driver\" app (F-Droid). A sweep hit alone is only a WATCH. An ALERT needs a tone played in this room to come back " +
+            "adapter and the free \"RTL-SDR driver\" app (F-Droid). A sweep hit alone is only a Suspect. An Alert needs a tone played in this room to come back " +
             "on that frequency while control frequencies stay silent.", color = UiColors.dim, fontSize = 12.sp)
 
         Text("1. Connect", color = UiColors.text, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))

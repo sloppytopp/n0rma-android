@@ -40,3 +40,35 @@ class TimelineTest {
         assertNotEquals(Timeline.key(ev[0]), Timeline.key(ev[1]))
     }
 }
+
+class RebaselineTest {
+    private fun scan(locked: Boolean): List<EventRow> {
+        val e = io.github.sloppytopp.homewatch.detect.Engine({ 1_700_000_000_000L }, { _, _ -> }).also { it.running = true; it.wifiEnabled = true }
+        e.loadKnownNets(setOf("aa:bb:cc:00:00:09"))
+        e.baselineLocked = locked
+        e.onWifiScan(listOf(
+            io.github.sloppytopp.homewatch.detect.WifiObs("aa:bb:cc:00:00:09", "Home", -50),
+            io.github.sloppytopp.homewatch.detect.WifiObs("aa:bb:cc:00:00:10", "NewNet", -50)))
+        return e.snapshot().events.filter { it.domain == "network" }
+    }
+
+    @Test fun newNetworkBeforeBaselineIsInfo() {
+        val ev = scan(false)
+        assertEquals(1, ev.size); assertEquals(Level.OK, ev[0].level)
+    }
+
+    @Test fun newNetworkAfterBaselineIsSuspect() {
+        val ev = scan(true)
+        assertEquals(1, ev.size); assertEquals(Level.WATCH, ev[0].level)
+        assertTrue(ev[0].msg.contains("since your baseline"))
+    }
+
+    @Test fun lockedNetworksDoNotFlag() {
+        val e = io.github.sloppytopp.homewatch.detect.Engine({ 1_700_000_000_000L }, { _, _ -> }).also { it.running = true; it.wifiEnabled = true }
+        e.loadKnownNets(setOf("aa:bb:cc:00:00:09"))
+        e.lockKnownNets(listOf("aa:bb:cc:00:00:10"))
+        e.baselineLocked = true
+        e.onWifiScan(listOf(io.github.sloppytopp.homewatch.detect.WifiObs("aa:bb:cc:00:00:10", "NewNet", -50)))
+        assertTrue(e.snapshot().events.none { it.domain == "network" })
+    }
+}

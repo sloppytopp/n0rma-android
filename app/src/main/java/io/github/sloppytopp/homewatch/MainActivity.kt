@@ -83,6 +83,8 @@ import io.github.sloppytopp.homewatch.ui.SettingsScreen
 import io.github.sloppytopp.homewatch.ui.SmartScreen
 import io.github.sloppytopp.homewatch.ui.MicScreen
 import io.github.sloppytopp.homewatch.ui.CalmHome
+import io.github.sloppytopp.homewatch.ui.ExecutiveHome
+import io.github.sloppytopp.homewatch.data.AppTheme
 import io.github.sloppytopp.homewatch.ui.SurveyCard
 import io.github.sloppytopp.homewatch.ui.StatusTile
 import io.github.sloppytopp.homewatch.ui.UiColors
@@ -231,7 +233,9 @@ private fun StatusScreen() {
         if (sweepStart > 0) { delay(30_000); Monitor.lastSweep = sweepSummary(Monitor.snapshot); sweepStart = 0 }
     }
 
-    if (!Prefs.hacker) CalmHome(s, onToggleScan = { if (Demo.active) Demo.stop() else if (s.running) ctx.startService(Intent(ctx, ScanService::class.java).setAction(ScanService.ACTION_STOP)) else onStartTapped() }, goTab = { Monitor.requestTab = it })
+    val toggleScan: () -> Unit = { if (Demo.active) Demo.stop() else if (s.running) ctx.startService(Intent(ctx, ScanService::class.java).setAction(ScanService.ACTION_STOP)) else onStartTapped() }
+    if (Prefs.theme == AppTheme.EXECUTIVE) ExecutiveHome(s, onToggleScan = toggleScan, goTab = { Monitor.requestTab = it })
+    else if (!Prefs.hacker) CalmHome(s, onToggleScan = toggleScan, goTab = { Monitor.requestTab = it })
     else {
     if (!Prefs.welcomed) {
         Column(

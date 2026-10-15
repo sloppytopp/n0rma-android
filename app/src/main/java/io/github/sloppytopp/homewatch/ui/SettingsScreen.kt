@@ -97,12 +97,19 @@ fun SettingsScreen() {
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Display and alerts", color = UiColors.text, fontSize = 16.sp)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Hacker theme (DEFCON strip, Matrix rain, green on black)", color = UiColors.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
-            Switch(checked = Prefs.hacker, onCheckedChange = { Prefs.saveHacker(it) })
+        Text("Theme", color = UiColors.dim, fontSize = 12.sp)
+        io.github.sloppytopp.homewatch.data.AppTheme.values().forEach { t ->
+            TextButton(onClick = { Prefs.saveTheme(t) }) {
+                Text((if (Prefs.theme == t) "●  " else "○  ") + t.label.substringBefore(" (") + when (t) {
+                    io.github.sloppytopp.homewatch.data.AppTheme.CALM -> "  (grey cards, default)"
+                    io.github.sloppytopp.homewatch.data.AppTheme.NIGHT -> "  (dim red on black, keeps night vision)"
+                    io.github.sloppytopp.homewatch.data.AppTheme.EXECUTIVE -> "  (slate, one headline, fewer items)"
+                    io.github.sloppytopp.homewatch.data.AppTheme.CLASSIC -> "  (the original look)"
+                }, color = if (Prefs.theme == t) UiColors.text else UiColors.dim, fontSize = 14.sp)
+            }
         }
         if (Prefs.hacker) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Night mode (dim red on black)", color = UiColors.text, fontSize = 14.sp)
+            Text("Red night colors", color = UiColors.text, fontSize = 14.sp)
             Switch(checked = Prefs.night, onCheckedChange = { Prefs.saveNight(it) })
         }
         Text("When something is flagged:", color = UiColors.dim, fontSize = 12.sp)

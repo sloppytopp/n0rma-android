@@ -140,6 +140,15 @@ class Engine(
 
     @Synchronized fun clearInspect() { inspect.clear() }
 
+    /** Set once the user has pressed Rebaseline: from then on a Wi-Fi network that was not around at that moment is a Suspect, not just Info. */
+    @Volatile var baselineLocked = false
+
+    /** Rebaseline: treat these Wi-Fi networks as normal. */
+    @Synchronized fun lockKnownNets(bssids: Collection<String>) { knownNets += bssids; netsLoaded = true; netSink(bssids.toList()) }
+
+    /** Keys of the camera-like Wi-Fi sources heard right now (what "This is mine" would save for them). */
+    @Synchronized fun camKeysNow(): List<String> = wifiCams.map { camKey(it.row.bssid, it.row.ssid) }.distinct()
+
     /** Load the BSSIDs seen on earlier runs. An empty set means "learn the neighbourhood silently on the first scan". */
     @Synchronized fun loadKnownNets(saved: Set<String>) { knownNets.clear(); knownNets += saved; netsLoaded = true }
 
@@ -174,7 +183,7 @@ class Engine(
             val added = rows.filter { knownNets.add(it.bssid) }
             if (added.isNotEmpty()) {
                 if (!firstEver) added.filter { it.level >= -80 }.sortedByDescending { it.level }.take(3).forEach {
-                    emit("network", Level.OK, "newnet:${it.bssid}", "New Wi-Fi network appeared: '${it.ssid}' ${it.bssid}" +
+                    emit("network", if (baselineLocked) Level.WATCH else Level.OK, "newnet:${it.bssid}", (if (baselineLocked) "New Wi-Fi network since your baseline: '" else "New Wi-Fi network appeared: '") + "${it.ssid}' ${it.bssid}" +
                         (if (it.vendor.isNotEmpty()) " ${it.vendor}" else "") + " ${it.level} dBm", 0, wifiAt)
                 }
                 if (knownNets.size > MAX_KNOWN_NETS) knownNets.clear()   // runaway guard (e.g. a long drive): relearn
@@ -328,7 +337,7 @@ class Engine(
     }
 
     /** Virtual networks from one radio share their first five octets: treat them as one source. */
-    private fun camKey(bssid: String, ssid: String) = "wifi:" + bssid.lowercase().split(":").take(5).joinToString(":") + "|" + ssid
+    fun camKey(bssid: String, ssid: String) = "wifi:" + bssid.lowercase().split(":").take(5).joinToString(":") + "|" + ssid
 
     private fun alert(domain: String, text: String) { if (!demoMode) onAlert(domain, text) }
 

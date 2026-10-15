@@ -11,15 +11,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 enum class AlertStyle { CHIME, VIBRATE, SILENT }
+/** CALM = grey/white cards (default), NIGHT = dim red on black for the dark, EXECUTIVE = streamlined slate single-screen look, CLASSIC = the original DEFCON/Matrix look. */
+enum class AppTheme(val label: String) { CALM("Calm"), NIGHT("Night vision"), EXECUTIVE("Executive"), CLASSIC("Classic (DEFCON)") }
 data class Home(val lat: Double, val lon: Double, val note: String = "")
 
 /** On-device settings. Nothing here is ever sent anywhere. */
 object Prefs {
     private lateinit var sp: SharedPreferences
 
-    var night by mutableStateOf(false); private set
-    /** Off by default: calm grey/white look. On: the DEFCON strip, Matrix rain, green-on-black and the red Night mode. */
-    var hacker by mutableStateOf(false); private set
+    /** When the user pressed Rebaseline (0 = never). */
+    var baselineAt by mutableStateOf(0L); private set
+    var theme by mutableStateOf(AppTheme.CALM); private set
+    private var classicNight by mutableStateOf(false)
+    /** Original DEFCON/Matrix look. */
+    val hacker: Boolean get() = theme == AppTheme.CLASSIC
+    /** Red-on-black palette: the Night vision theme, or the old Night switch inside the Classic theme. */
+    val night: Boolean get() = theme == AppTheme.NIGHT || (theme == AppTheme.CLASSIC && classicNight)
     /** Timeline events the user marked as resolved (own device, noise, false positive). Keys are "ts|domain". */
     var resolved by mutableStateOf<Set<String>>(emptySet()); private set
     var rain by mutableStateOf(true); private set
@@ -40,8 +47,9 @@ object Prefs {
 
     fun init(ctx: Context) {
         sp = ctx.getSharedPreferences("homewatch", Context.MODE_PRIVATE)
-        night = sp.getBoolean("night", false)
-        hacker = sp.getBoolean("hacker", false)
+        classicNight = sp.getBoolean("night", false)
+        baselineAt = sp.getLong("baseline_at", 0L)
+        theme = runCatching { AppTheme.valueOf(sp.getString("theme", null)!!) }.getOrElse { if (sp.getBoolean("hacker", false)) AppTheme.CLASSIC else AppTheme.CALM }
         resolved = sp.getStringSet("resolved", emptySet()) ?: emptySet()
         rain = sp.getBoolean("rain", true)
         alertStyle = runCatching { AlertStyle.valueOf(sp.getString("alert", "CHIME")!!) }.getOrDefault(AlertStyle.CHIME)
@@ -72,9 +80,11 @@ object Prefs {
     fun saveWelcomed() { welcomed = true; sp.edit().putBoolean("welcomed", true).apply() }
     fun saveMicBaseline(v: String) { micBaseline = v; sp.edit().putString("mic_baseline", v).apply() }
     fun saveRain(v: Boolean) { rain = v; sp.edit().putBoolean("rain", v).apply() }
-    fun saveHacker(v: Boolean) { hacker = v; sp.edit().putBoolean("hacker", v).apply() }
+    fun saveBaselineAt(ts: Long) { baselineAt = ts; sp.edit().putLong("baseline_at", ts).apply() }
+    fun resolveMany(keys: Collection<String>) { resolved = resolved + keys; sp.edit().putStringSet("resolved", resolved.toSet()).apply() }
+    fun saveTheme(t: AppTheme) { theme = t; sp.edit().putString("theme", t.name).apply() }
     fun toggleResolved(key: String) { resolved = if (key in resolved) resolved - key else resolved + key; sp.edit().putStringSet("resolved", resolved.toSet()).apply() }
-    fun saveNight(v: Boolean) { night = v; sp.edit().putBoolean("night", v).apply() }
+    fun saveNight(v: Boolean) { classicNight = v; sp.edit().putBoolean("night", v).apply() }
     fun saveAlertStyle(v: AlertStyle) { alertStyle = v; sp.edit().putString("alert", v.name).apply() }
     fun saveHome(h: Home?) {
         home = h
