@@ -15,7 +15,9 @@ interface IqSource : AutoCloseable {
 
 /**
  * rtl_tcp client (the protocol spoken by Martin Marinov's "RTL-SDR driver" app, which owns the USB dongle, so this app needs no USB code).
- * Header: "RTL0", tuner type, gain count (12 bytes). Commands: 1 byte id + big-endian uint32. Data: raw IQ bytes.
+ * SECURITY: rtl_tcp has no authentication, so any app on this phone could listen on that port and feed fake samples. The host is fixed to
+ * loopback, the "RTL0" header is checked and every read is bounded, but a hostile local app could still spoof results (e.g. a false "all clear").
+ * Treat sweep results as advisory on a phone you do not trust. Header: "RTL0", tuner type, gain count (12 bytes). Commands: 1 byte id + big-endian uint32. Data: raw IQ bytes.
  */
 class RtlTcp(host: String = "127.0.0.1", port: Int = 1234, timeoutMs: Int = 4000) : IqSource {
     private val sock = Socket().also { it.connect(InetSocketAddress(host, port), timeoutMs); it.soTimeout = 8000; it.receiveBufferSize = 1 shl 20 }

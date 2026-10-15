@@ -70,6 +70,7 @@ fun MicScreen() {
         Text("What this cannot see", color = UiColors.text, fontSize = 15.sp, modifier = Modifier.padding(top = 10.dp))
         Text("Recorders that never transmit; wired mics; GSM/LTE, DECT, Wi-Fi/Bluetooth bugs (use the other tabs for those); digital or burst-only transmitters; " +
             "anything above about 1.3 GHz or inside a gap the dongle cannot tune. A quiet result does not prove the room is clear. A confirmed tone can also be a baby monitor or " +
-            "wireless mic you own: it means that frequency carries this room's audio, not who put it there.", color = UiColors.faint, fontSize = 11.sp)
+            "wireless mic you own: it means that frequency carries this room's audio, not who put it there. The driver app has no login, so another app on this phone could feed it fake radio data; " +
+            "only trust results on a phone you control.", color = UiColors.faint, fontSize = 11.sp)
     }
 }

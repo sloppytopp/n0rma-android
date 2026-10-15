@@ -32,7 +32,7 @@ object Mic {
 
     /** Ask the driver app to start its rtl_tcp server (it shows the USB permission prompt for the dongle). */
     fun launchDriver(ctx: Context) {
-        val i = Intent(Intent.ACTION_VIEW, Uri.parse("iqsrc://-a 127.0.0.1 -p $PORT")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val i = Intent(Intent.ACTION_VIEW, Uri.parse("iqsrc://-a 127.0.0.1 -p $PORT")).setPackage(DRIVER_PKG).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)   // explicit target: no other app can answer this intent
         try { ctx.startActivity(i) } catch (e: ActivityNotFoundException) {
             say("The RTL-SDR driver app is not installed")
             runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://f-droid.org/packages/$DRIVER_PKG/")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
