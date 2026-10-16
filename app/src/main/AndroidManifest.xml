@@ -643,11 +643,11 @@
     </queries>
 
     <application
-        android:name=".HomewatchApp"
+        android:name=".N0rmaApp"
         android:allowBackup="false"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher_hw"
-        android:theme="@style/Theme.Homewatch">
+        android:theme="@style/Theme.N0rma">
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" />
 
         <!-- Launcher entries: only one is enabled at a time (Settings -> Privacy -> App name and icon). -->

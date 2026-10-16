@@ -8,7 +8,7 @@ BOOT, SHARE, MATCH, MINNET, MINPLACES, MINSPAN, MINSIGHT = 12, 0.15, 0.5, 2, 3, 
 
 db = tempfile.mktemp(suffix=".db")
 with open(db, "wb") as f:
-    f.write(subprocess.run([ADB, "exec-out", "run-as", "io.github.sloppytopp.homewatch", "cat", "databases/homewatch.db"], capture_output=True).stdout)
+    f.write(subprocess.run([ADB, "exec-out", "run-as", "io.github.sloppytopp.n0rma", "cat", "databases/n0rma.db"], capture_output=True).stdout)
 rows = sqlite3.connect(db).execute("select ts,key,label,place from trail order by ts").fetchall()
 if not rows:
     sys.exit("No tracker sightings saved yet (is scanning on, Wi-Fi scanning allowed, and an unknown tracker near the phone?)")

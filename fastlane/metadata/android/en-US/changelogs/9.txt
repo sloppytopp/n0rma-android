@@ -1,0 +1,6 @@
+Version 0.7.0
+- New calm home screen (grey, plain words) with Scan, an Info/Suspect/Alert timeline and "Mark resolved"
+- Rebaseline: lock in the Wi-Fi networks around you; any new one is flagged right away
+- Four themes: Calm, Night vision, Executive, Classic
+- Following detection, evidence export, digital-safety checklist, stalkerware check
+- New application ID io.github.sloppytopp.n0rma: install it and uninstall the old Homewatch app

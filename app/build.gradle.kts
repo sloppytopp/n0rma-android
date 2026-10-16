@@ -11,15 +11,15 @@ val keystoreProps = Properties().apply {
 }
 
 android {
-    namespace = "io.github.sloppytopp.homewatch"
+    namespace = "io.github.sloppytopp.n0rma"
     compileSdk = 35
     buildToolsVersion = "34.0.0"      // pinned (AGP 8.7.3's own default) so the build does not depend on whichever tools are installed
     defaultConfig {
-        applicationId = "io.github.sloppytopp.homewatch"
+        applicationId = "io.github.sloppytopp.n0rma"       // permanent once on F-Droid
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.7.0-beta1"
+        versionCode = 9
+        versionName = "0.7.0"
         buildConfigField("boolean", "SDR", "false")
     }
     signingConfigs {

@@ -6,7 +6,7 @@ Sister project of github.com/sloppytopp/n0rma (Linux, MIT). Never jams/spoofs/tr
 
 ## Platform
 Test device: TCL 5087Z, Android 11 (API 30), arm64, BLE yes, no Wi-Fi Aware; OEM power manager kills background apps ("Restrict") -> needs foreground service + battery-optimization exemption prompt. Toolchain installed locally: JDK 17 (~/jdk), Android SDK (~/Android/Sdk), platform 35.
-Kotlin + Jetpack Compose, minSdk 26 (Android 8), target latest. Package `io.github.sloppytopp.homewatch`.
+Kotlin + Jetpack Compose, minSdk 26 (Android 8), target latest. Application ID `io.github.sloppytopp.n0rma`.
 Build with Gradle CLI; test on a real phone over USB (emulators have no BLE/Wi-Fi scanning).
 
 ## Detection (port of the Python tool; shared test vectors)
