@@ -3,8 +3,6 @@ package io.github.sloppytopp.n0rma.data
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
-import java.security.MessageDigest
-import java.security.SecureRandom
 import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -104,21 +102,18 @@ object Prefs {
 
     fun saveDiscreet(v: Boolean) { discreet = v; sp.edit().putBoolean("discreet", v).apply() }
 
-    private fun hash(salt: String, pin: String) =
-        MessageDigest.getInstance("SHA-256").digest((salt + pin).toByteArray()).joinToString("") { "%02x".format(it) }
+    private val pinVault = PinVault(
+        read = { sp.getString(it, null) },
+        write = { m -> sp.edit().also { e -> m.forEach { (k, v) -> if (v == null) e.remove(k) else e.putString(k, v) } }.commit() },
+    )
 
-    /** PIN is stored only as a salted hash on this phone. There is no recovery: forgetting it means clearing app data. */
-    fun savePin(pin: String?) {
-        if (pin == null) { sp.edit().remove("pin_hash").remove("pin_salt").apply(); hasPin = false; return }
-        val salt = ByteArray(8).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
-        sp.edit().putString("pin_salt", salt).putString("pin_hash", hash(salt, pin)).apply(); hasPin = true
-    }
+    /** PIN is stored only as a PBKDF2 hash on this phone. There is no recovery: forgetting it means clearing app data. */
+    fun savePin(pin: String?) { pinVault.save(pin); hasPin = pinVault.hasPin }
 
-    fun checkPin(pin: String): Boolean {
-        val salt = sp.getString("pin_salt", null) ?: return false
-        val want = sp.getString("pin_hash", null) ?: return false
-        return MessageDigest.isEqual(want.toByteArray(), hash(salt, pin).toByteArray())
-    }
+    /** Milliseconds the lock screen must still wait before another try (survives restarts). */
+    fun pinLockedForMs(now: Long) = pinVault.lockedForMs(now)
+
+    fun tryPin(pin: String, now: Long = System.currentTimeMillis()) = pinVault.attempt(pin, now)
 
     /** Switch which launcher entry (name + icon) is shown. Only one alias is enabled at a time. */
     fun saveLauncher(ctx: Context, which: Int) {

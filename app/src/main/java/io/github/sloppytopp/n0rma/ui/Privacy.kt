@@ -16,8 +16,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -36,8 +34,6 @@ import io.github.sloppytopp.n0rma.scan.Monitor
 fun LockScreen() {
     var pin by remember { mutableStateOf("") }
     var err by remember { mutableStateOf<String?>(null) }
-    var fails by remember { mutableIntStateOf(0) }
-    var until by remember { mutableLongStateOf(0L) }
     Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Enter PIN", color = UiColors.text, fontSize = 20.sp)
         OutlinedTextField(
@@ -48,10 +44,11 @@ fun LockScreen() {
         Button(
             onClick = {
                 val now = System.currentTimeMillis()
+                val wait = Prefs.pinLockedForMs(now)
                 when {
-                    now < until -> err = "Too many tries. Wait a moment."
-                    Prefs.checkPin(pin) -> { Monitor.locked = false; pin = ""; fails = 0; err = null }
-                    else -> { fails++; pin = ""; err = "Wrong PIN"; if (fails >= 5) { until = now + 30_000; fails = 0; err = "Too many tries. Wait 30 seconds." } }
+                    wait > 0 -> err = "Too many tries. Wait ${(wait + 999) / 1000} seconds."
+                    Prefs.tryPin(pin, now) -> { Monitor.locked = false; pin = ""; err = null }
+                    else -> { pin = ""; val w = Prefs.pinLockedForMs(now); err = if (w > 0) "Too many tries. Wait ${(w + 999) / 1000} seconds." else "Wrong PIN" }
                 }
             },
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
