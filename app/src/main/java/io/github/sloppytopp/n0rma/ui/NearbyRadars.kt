@@ -58,7 +58,7 @@ import kotlin.math.sin
 /** One contact on a scope. [angle] is clockwise degrees from the top and means band/type, never compass direction (see [ScopeLayout]). */
 private class Dot(
     val label: String, val angle: Float, val meters: Double, val color: Color,
-    val triangle: Boolean = false, val pulse: Boolean = false, val onTap: () -> Unit,
+    val triangle: Boolean = false, val pulse: Boolean = false, val fresh: Boolean = false, val onTap: () -> Unit,
 )
 
 /** One line in the list under a scope. */
@@ -136,6 +136,8 @@ private fun Scope(dots: List<Dot>, wedges: List<String>, pingKey: Long, beamOffs
         for (d in dots) {
             val o = posOf(d, w)
             val al = if (still) 1f else radarAlpha(sweep, Math.toRadians(d.angle - 90.0), d.pulse)
+            // just arrived: a ring that keeps expanding off the dot until it has been there a few seconds
+            if (d.fresh) { val f = (phase * 4) % 1f; drawCircle(d.color.copy(alpha = 0.8f * (1f - f)), (6 + 18 * f).dp.toPx(), o, style = Stroke(2.dp.toPx())) }
             if (d.pulse) drawCircle(d.color.copy(alpha = 0.25f * al), (8 + 6 * Math.abs(sin(phase * 8 * Math.PI))).toFloat().dp.toPx(), o)
             drawCircle(d.color.copy(alpha = 0.22f * al), 7.dp.toPx(), o)
             if (d.triangle) triangle(o.x, o.y, 6.dp.toPx(), d.color.copy(alpha = al)) else drawCircle(d.color.copy(alpha = al), 3.5.dp.toPx(), o)
@@ -179,12 +181,15 @@ private fun Header(title: String, sub: String) {
     Text(sub, color = UiColors.dim, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
+/** "NEW" in front of a tag while a tracker or drone is fresh. Only these two: other Bluetooth addresses rotate every few minutes, so "new" would just be noise. */
+private fun newTag(a: ArrivalTracker, key: String, now: Long, tag: String) = if (a.isNew(key, now)) "NEW · $tag" else tag
+
 private const val WIFI_LIST_MAX = 40
 private const val BLE_LIST_MAX = 60
 
 /** Wi-Fi radar + list. Dots sit in 2.4 / 5 / 6 GHz wedges by channel; distance is estimated from signal. */
 @Composable
-internal fun WifiRadar(s: Snapshot, now: Long, onPick: (WifiRow) -> Unit) {
+internal fun WifiRadar(s: Snapshot, now: Long, arrivals: ArrivalTracker, onPick: (WifiRow) -> Unit) {
     val sorted = s.wifi.sortedByDescending { it.level }
     val dots = sorted.map { w ->
         val color = when {
@@ -192,7 +197,7 @@ internal fun WifiRadar(s: Snapshot, now: Long, onPick: (WifiRow) -> Unit) {
             w.ssid in Prefs.mySsids -> UiColors.good
             else -> UiColors.neutral
         }
-        Dot(w.ssid, ScopeLayout.wifiAngle(w.freq, w.bssid), Geo.rssiToMeters(w.level, -45), color, onTap = { onPick(w) })
+        Dot(w.ssid, ScopeLayout.wifiAngle(w.freq, w.bssid), Geo.rssiToMeters(w.level, -45), color, fresh = arrivals.justArrived(w.bssid, now), onTap = { onPick(w) })
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Header("Wi-Fi", "${s.wifi.size} networks" + if (s.wifiAt > 0) " · scan ${ago(now - s.wifiAt)} ago" else "")
@@ -202,7 +207,10 @@ internal fun WifiRadar(s: Snapshot, now: Long, onPick: (WifiRow) -> Unit) {
             val ch = Export.channel(w.freq).takeIf { it > 0 }?.let { "ch $it" }
             ScopeRow(
                 w.ssid, listOfNotNull(ch, w.vendor.ifEmpty { null }).joinToString(" · "), w.level, dots[i].color,
-                tag = when { mine -> "YOURS"; w.klass == "camera" -> "CAMERA-LIKE"; w.klass == "drone" -> "DRONE-LIKE"; else -> null },
+                tag = listOfNotNull(
+                    if (arrivals.isNew(w.bssid, now)) "NEW" else null,
+                    when { mine -> "YOURS"; w.klass == "camera" -> "CAMERA-LIKE"; w.klass == "drone" -> "DRONE-LIKE"; else -> null },
+                ).joinToString(" · ").ifEmpty { null },
                 onTap = { onPick(w) },
             )
         }, "No networks yet...")
@@ -211,20 +219,20 @@ internal fun WifiRadar(s: Snapshot, now: Long, onPick: (WifiRow) -> Unit) {
 
 /** Bluetooth radar + list. Dots sit in drone / tracker / other wedges; "other" only fills when the show-all switch is on. */
 @Composable
-internal fun BluetoothRadar(s: Snapshot, inspecting: Boolean, running: Boolean, onInspect: (Boolean) -> Unit, onPick: (addr: String, label: String) -> Unit) {
+internal fun BluetoothRadar(s: Snapshot, now: Long, arrivals: ArrivalTracker, inspecting: Boolean, running: Boolean, onInspect: (Boolean) -> Unit, onPick: (addr: String, label: String) -> Unit) {
     val trackerColor = if (s.tracker.level == Level.ALERT) UiColors.alert else UiColors.watch
     val known = s.trackers.map { it.addr }.toSet()
     val rows = ArrayList<Pair<Dot, ScopeRow>>()
     for (d in s.drones.filter { it.via == "Bluetooth" }.sortedByDescending { it.rssi }) {
         val tap = { onPick(d.addr, "Drone broadcast") }
-        rows += Dot("DRONE", ScopeLayout.bleAngle(ScopeLayout.BLE_DRONE, d.addr), Geo.rssiToMeters(d.rssi, -59), UiColors.alert, triangle = true, pulse = true, onTap = tap) to
-            ScopeRow("Drone (claims Remote ID)", d.info.basicId ?: d.addr, d.rssi, UiColors.alert, "DRONE", tap)
+        rows += Dot("DRONE", ScopeLayout.bleAngle(ScopeLayout.BLE_DRONE, d.addr), Geo.rssiToMeters(d.rssi, -59), UiColors.alert, triangle = true, pulse = true, fresh = arrivals.justArrived(d.addr, now), onTap = tap) to
+            ScopeRow("Drone (claims Remote ID)", d.info.basicId ?: d.addr, d.rssi, UiColors.alert, newTag(arrivals, d.addr, now, "DRONE"), tap)
     }
     for (t in s.trackers.sortedByDescending { it.rssi }) {
         val tap = { onPick(t.addr, t.label) }
         val color = if (t.mine) UiColors.good else trackerColor
-        rows += Dot(t.label.substringBefore(" SEPARATED"), ScopeLayout.bleAngle(ScopeLayout.BLE_TRACKER, t.addr), Geo.rssiToMeters(t.rssi, -59), color, pulse = !t.mine, onTap = tap) to
-            ScopeRow(t.label, "seen ${ago(t.seenS * 1000)}", t.rssi, color, if (t.mine) "YOURS" else "TRACKER", tap)
+        rows += Dot(t.label.substringBefore(" SEPARATED"), ScopeLayout.bleAngle(ScopeLayout.BLE_TRACKER, t.addr), Geo.rssiToMeters(t.rssi, -59), color, pulse = !t.mine, fresh = arrivals.justArrived(t.addr, now), onTap = tap) to
+            ScopeRow(t.label, "seen ${ago(t.seenS * 1000)}", t.rssi, color, newTag(arrivals, t.addr, now, if (t.mine) "YOURS" else "TRACKER"), tap)
     }
     if (inspecting) for (r in s.inspect.filter { it.addr !in known }.sortedByDescending { it.rssi }.take(BLE_LIST_MAX)) {
         val label = r.name.ifEmpty { r.company.ifEmpty { "Bluetooth device" } }

@@ -1,6 +1,9 @@
 # Changelog
 ## Unreleased
 - Nearby tab: two live radars side by side, Wi-Fi and Bluetooth, each with its device list underneath (strongest first). Wi-Fi dots sit in 2.4 / 5 / 6 GHz wedges by channel, Bluetooth dots in drone / tracker / other wedges; distance comes from signal strength. A sweep beam lights each dot as it passes and a ring ripples out whenever fresh scan data lands, so you can see the radios are being listened to. Tap a dot or a row to hunt for it. The sample-data Wi-Fi networks now carry channels so the Wi-Fi radar fills in.
+- Nearby tab, under the radars: a live **Wi-Fi spectrum** (channel-by-channel crowding with peak hold and the busiest channel in words), a **Bluetooth activity waterfall** (last minute of signal strengths), and **new-arrival call-outs** (a ring and a NEW label when a Wi-Fi network, tracker or drone shows up after you opened the screen).
+- **Sweep receipt**: the 30-second sweep now ends with a receipt that appears line by line - what was heard, and what a phone cannot check. The sweep button is also on the Nearby tab.
+- Finder: optional **beep guide** that speeds up as you get closer (off by default, hidden in Discreet mode).
 ## 0.7.0
 - RF mic sweep (SDR build): Burst scan finds carriers that come and go (seen in some passes but not most), and Watch logs one frequency's on/off pattern (duty cycle, burst and gap length, repeat period). Not yet tested with real hardware.
 - **New application ID `io.github.sloppytopp.n0rma`** (was `...homewatch`). This is a new app to Android: install it, then uninstall the old one; history is not carried over.
