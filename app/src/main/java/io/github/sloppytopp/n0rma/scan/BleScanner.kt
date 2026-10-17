@@ -19,6 +19,7 @@ import io.github.sloppytopp.n0rma.detect.BleClassifier
 @SuppressLint("MissingPermission") // permissions are checked by the caller before start()
 class BleScanner(private val ctx: Context, private val inspect: Boolean = false) {
     private var scanner: BluetoothLeScanner? = null
+    private var fast = false
 
     private fun uuid(short: String) = ParcelUuid.fromString("0000$short-0000-1000-8000-00805f9b34fb")
 
@@ -72,7 +73,7 @@ class BleScanner(private val ctx: Context, private val inspect: Boolean = false)
         }
         val s = adapter.bluetoothLeScanner ?: run { Monitor.engine.error = "Bluetooth scanner unavailable"; return false }
         val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setScanMode(if (fast) ScanSettings.SCAN_MODE_LOW_LATENCY else ScanSettings.SCAN_MODE_BALANCED)
             .setLegacy(false) // also receive Bluetooth 5 extended advertisements (used by some Remote ID drones)
             .setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
             .build()
@@ -80,6 +81,13 @@ class BleScanner(private val ctx: Context, private val inspect: Boolean = false)
         scanner = s
         Monitor.engine.error = null
         return true
+    }
+
+    /** Full-duty scanning only while hunting, sweeping or inspecting; balanced otherwise to save battery. */
+    fun setFast(want: Boolean) {
+        if (want == fast) return
+        fast = want
+        if (scanner != null) { stop(); start() }
     }
 
     fun stop() {

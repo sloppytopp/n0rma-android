@@ -30,6 +30,7 @@ class ScanService : Service() {
     private var wifiN = 0
     private var locListener: LocationListener? = null
     private var lastWifiLogged = 0L
+    private var lastLine: String? = null
     private val surveyGate = io.github.sloppytopp.n0rma.detect.SurveyGate()
 
     @android.annotation.SuppressLint("MissingPermission")
@@ -65,10 +66,12 @@ class ScanService : Service() {
     private val tick = object : Runnable {
         override fun run() {
             if (wifiN++ % (if (Monitor.hunt != null || Monitor.fastWifi) 5 else 10) == 0) wifi?.poke()   // ~30 s, or ~15 s while hunting
+            scanner?.setFast(Monitor.hunt != null || Monitor.fastWifi || Monitor.inspecting)
             Monitor.refresh()
             runCatching { syncSurvey() }
             val s = Monitor.snapshot
-            nm().notify(ONGOING_ID, ongoing(statusLine(s.drone.level, s.tracker.level)))
+            val line = statusLine(s.drone.level, s.tracker.level)
+            if (line != lastLine) { lastLine = line; nm().notify(ONGOING_ID, ongoing(line)) }
             handler.postDelayed(this, 3000)
         }
     }
@@ -84,6 +87,7 @@ class ScanService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) { stopScanning(); return START_NOT_STICKY }
         makeChannels()
+        lastLine = null
         val n = ongoing("Starting...")
         if (Build.VERSION.SDK_INT >= 29) startForeground(ONGOING_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         else startForeground(ONGOING_ID, n)
