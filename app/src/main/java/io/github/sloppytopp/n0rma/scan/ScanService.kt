@@ -71,7 +71,8 @@ class ScanService : Service() {
             runCatching { syncSurvey() }
             val s = Monitor.snapshot
             val line = statusLine(s.drone.level, s.tracker.level)
-            if (line != lastLine) { lastLine = line; nm().notify(ONGOING_ID, ongoing(line)) }
+            val key = "${Prefs.discreet}|$line"   // discreet mode changes the notification too
+            if (key != lastLine) { lastLine = key; nm().notify(ONGOING_ID, ongoing(line)) }
             handler.postDelayed(this, 3000)
         }
     }
