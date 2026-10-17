@@ -46,25 +46,6 @@ import io.github.sloppytopp.n0rma.scan.Monitor
 import kotlinx.coroutines.delay
 
 @Composable
-private fun Chip(text: String, color: androidx.compose.ui.graphics.Color) =
-    Text(" $text ", color = color, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-
-@Composable
-private fun DeviceRow(bars: String, title: String, sub: String, rssi: Int, chip: String? = null, chipColor: androidx.compose.ui.graphics.Color = UiColors.dim, onClick: (() -> Unit)? = null) {
-    Row(
-        Modifier.fillMaxWidth().let { if (onClick != null) it.clickable { onClick() } else it }.padding(vertical = 5.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(bars, color = UiColors.good, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp))
-        Column(Modifier.weight(1f)) {
-            Row { Text(title, color = UiColors.text, fontSize = 14.sp); if (chip != null) Chip(chip, chipColor) }
-            Text(sub, color = UiColors.dim, fontSize = 11.sp)
-        }
-        Text("$rssi dBm", color = UiColors.dim, fontSize = 11.sp)
-    }
-}
-
-@Composable
 fun NearbyScreen() {
     val ctx = LocalContext.current
     val s = Monitor.snapshot
@@ -77,42 +58,16 @@ fun NearbyScreen() {
         Text("What's around you", color = UiColors.text, fontSize = 20.sp)
         if (!s.running) Text("Start scanning on the Status tab to fill these lists.", color = UiColors.warn, fontSize = 13.sp)
 
-        Text("Wi-Fi networks (${s.wifi.size})" + if (s.wifiAt > 0) " - scanned ${ago(now - s.wifiAt)} ago" else "", color = UiColors.text, fontSize = 15.sp)
-        Text("Tap a network for details: mark it as yours, or look it up on WiGLE. Android only allows a Wi-Fi scan every ~30 s.", color = UiColors.faint, fontSize = 11.sp)
-        if (s.wifi.isEmpty()) Text(s.camera.message.takeIf { s.camera.level == io.github.sloppytopp.n0rma.detect.Level.OFF } ?: "No networks yet...", color = UiColors.dim, fontSize = 12.sp)
-        s.wifi.forEach { w ->
-            val mine = w.ssid in Prefs.mySsids
-            DeviceRow(
-                signalBars(w.level), w.ssid, "${w.bssid}${if (w.vendor.isNotEmpty()) " · ${w.vendor}" else ""}", w.level,
-                chip = when { mine -> "YOURS"; w.klass == "camera" -> "CAMERA-LIKE"; w.klass == "drone" -> "DRONE-LIKE"; else -> null },
-                chipColor = if (mine) UiColors.good else UiColors.alert,
-                onClick = { wifiDetail = w },
-            )
+        if (s.wifi.isEmpty() && s.camera.level == io.github.sloppytopp.n0rma.detect.Level.OFF) Text(s.camera.message, color = UiColors.dim, fontSize = 12.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.weight(1f)) { WifiRadar(s, now) { wifiDetail = it } }
+            Column(Modifier.weight(1f)) { BluetoothRadar(s, Monitor.inspecting, s.running, { Monitor.setInspect(ctx, it) }) { addr, label -> finding = addr to label } }
         }
-
-        Text("Bluetooth", color = UiColors.text, fontSize = 15.sp, modifier = Modifier.padding(top = 10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Show every Bluetooth device (phones, watches, gadgets)", color = UiColors.dim, fontSize = 12.sp, modifier = Modifier.weight(1f).padding(end = 8.dp))
-            Switch(checked = Monitor.inspecting, onCheckedChange = { Monitor.setInspect(ctx, it) }, enabled = s.running)
-        }
-        Text("Tap any Bluetooth device to hunt for it with the hot/cold finder. Phones and watches change their address every few minutes, so one device can appear more than once.",
+        Text("Dots are placed by Wi-Fi band and channel, or by Bluetooth type - not by direction, because a phone radio cannot tell which way a signal comes from. " +
+            "Distance is estimated from signal strength (rings at about 5 m and 20 m). The beam lights each dot as it passes, and a ring ripples out whenever fresh scan data arrives.",
             color = UiColors.faint, fontSize = 11.sp)
-        s.drones.filter { it.via == "Bluetooth" }.forEach { d ->
-            DeviceRow(signalBars(d.rssi), "DRONE (claims Remote ID)", "${d.info.basicId ?: d.addr}", d.rssi, "DRONE", UiColors.alert) { finding = d.addr to "Drone broadcast" }
-        }
-        s.trackers.forEach { t ->
-            DeviceRow(signalBars(t.rssi), t.label, "${t.addr} · seen ${ago(t.seenS * 1000)}", t.rssi, if (t.mine) "YOURS" else "TRACKER", if (t.mine) UiColors.good else UiColors.watch) { finding = t.addr to t.label }
-        }
-        if (Monitor.inspecting) {
-            val known = s.trackers.map { it.addr }.toSet()
-            val rows = s.inspect.filter { it.addr !in known }
-            Text("${rows.size} other Bluetooth devices heard in the last minute", color = UiColors.dim, fontSize = 12.sp)
-            rows.take(60).forEach { r ->
-                DeviceRow(signalBars(r.rssi), r.name.ifEmpty { "(no name)" }, "${r.addr}${if (r.company.isNotEmpty()) " · ${r.company}" else ""}", r.rssi, onClick = { finding = r.addr to r.name.ifEmpty { r.company.ifEmpty { "Bluetooth device" } } })
-            }
-        } else if (s.trackers.isEmpty() && s.drones.none { it.via == "Bluetooth" }) {
-            Text("No trackers or drones in range. Turn on \"Show every Bluetooth device\" to see all of them.", color = UiColors.dim, fontSize = 12.sp)
-        }
+        Text("Tap a dot or a row to hunt for it with the hot/cold finder. Wi-Fi: Android only allows a scan every ~30 s. Bluetooth: phones and watches change their address every few minutes, so one device can appear more than once.",
+            color = UiColors.faint, fontSize = 11.sp)
     }
 
     finding?.let { (addr, label) -> Finder(addr, label) { finding = null } }
