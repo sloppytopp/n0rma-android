@@ -46,7 +46,8 @@ No internet permission, no accounts, no analytics. History stays on the phone an
 
 ## How well does it work? (honest status)
 
-- Tested on **one** phone (TCL 5087Z, Android 11) and with unit tests of the detection logic. Android 12 and newer change Bluetooth and Wi-Fi scan permissions and throttling; it has not been verified there.
+- Detection tested on **one** phone (TCL 5087Z, Android 11) and with unit tests of the detection logic. Android 12 and newer change Bluetooth and Wi-Fi scan permissions and throttling, so detection has not been verified there.
+- Independent device test (F-Droid MR !51294, v0.6.0 release APK, Samsung SM-G998B, Android 15): installs and launches, all main tabs render, sample-data mode and Night switch present, 0 packets captured while idle (consistent with the no-network claim), 0 crashes in logcat. This covers install, UI and network behaviour only; scanning results (hits, misses, false alarms) on Android 15 are still untested. Thanks to the reviewer.
 - Not yet tested against a full set of real AirTag, SmartTag, Tile, Chipolo, Pebblebee or Google Find Hub trackers, and the IETF DULT (unwanted-tracker) specification is not implemented.
 - **False-positive and false-negative rates have not been measured.** We will publish them when there is a test corpus; until then, treat every number above as a starting point.
 

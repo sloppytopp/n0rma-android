@@ -56,7 +56,7 @@ Only use the official sources below. Other "APK sites" can host modified copies,
 | **Obtainium** (auto-updates from GitHub) | [Add N0RMA to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/sloppytopp/n0rma-android) - or in Obtainium tap **Add App** and paste `https://github.com/sloppytopp/n0rma-android` |
 | **F-Droid** | [merge request open](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51294) (under review) |
 
-Requires Android 8+ and a phone with Bluetooth LE. Tested on a TCL 5087Z (Android 11). After installing, tap **Try it with sample data** to see every screen work before trusting it with anything real.
+Requires Android 8+ and a phone with Bluetooth LE. Tested on a TCL 5087Z (Android 11) and, by an independent reviewer on the F-Droid merge request, a Samsung SM-G998B (Android 15): installs, launches, renders every tab, no network traffic, no crashes (v0.6.0; install and UI only, detection was not exercised). After installing, tap **Try it with sample data** to see every screen work before trusting it with anything real.
 
 ### Verify your download
 Each release lists two values you can check:
@@ -80,7 +80,7 @@ If the fingerprint is different, it is not an official build - don't install it.
 No internet permission in the standard app. See [PRIVACY.md](PRIVACY.md). (The optional SDR build below is the only variant that has it.)
 
 ## Help test it
-This is a beta tested on one phone so far. Test reports (hits, misses and false alarms) are the most valuable contribution: [docs/TESTING.md](docs/TESTING.md).
+This is a beta; detection has been exercised on one phone so far (a second phone has confirmed install and UI on Android 15). Test reports (hits, misses and false alarms) are the most valuable contribution: [docs/TESTING.md](docs/TESTING.md).
 
 ## Build
 JDK 17 + Android SDK 35: `./gradlew assembleDebug testDebugUnitTest` (JUnit tests over the radio parsing and detection logic; CI runs them on every push), then `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
