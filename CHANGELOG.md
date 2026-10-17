@@ -1,5 +1,6 @@
 # Changelog
 ## 0.7.0
+- RF mic sweep (SDR build): Burst scan finds carriers that come and go (seen in some passes but not most), and Watch logs one frequency's on/off pattern (duty cycle, burst and gap length, repeat period). Not yet tested with real hardware.
 - **New application ID `io.github.sloppytopp.n0rma`** (was `...homewatch`). This is a new app to Android: install it, then uninstall the old one; history is not carried over.
 - Rebaseline button on the home screen: once everything is checked and all clear, one tap (with a confirmation) locks the Wi-Fi networks, trackers and camera-like sources around you in as safe and clears the open items; from then on any new Wi-Fi network is flagged as a Suspect right away. Reset baseline undoes it.
 - Four themes in Settings: Calm (default), Night vision (dim red on black), Executive (slate, one headline) and Classic (the original DEFCON look).
