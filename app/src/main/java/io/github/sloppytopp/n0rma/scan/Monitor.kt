@@ -50,7 +50,7 @@ object Monitor {
         else { inspector?.stop(); inspector = null; inspecting = false; engine.clearInspect() }
     }
 
-    var lastSweep by mutableStateOf<String?>(null)
+    var lastReceipt by mutableStateOf<io.github.sloppytopp.n0rma.ui.Receipt?>(null)
 
     /** Ask for Wi-Fi scans as often as Android allows (room sweeps, hunts). */
     var fastWifi by mutableStateOf(false)
