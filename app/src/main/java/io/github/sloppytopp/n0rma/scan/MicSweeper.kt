@@ -33,6 +33,46 @@ class MicSweeper(private val src: IqSource, val gainTenthsDb: Int = 300, private
         return RfSweep.steady(all)
     }
 
+    /** [n] quick passes kept separately (not collapsed to steady ones) so carriers that come and go can be told apart from steady ones. */
+    fun rawPasses(n: Int, bands: List<RfSweep.Band>, overDb: Double, progress: (String) -> Unit = {}): List<Map<Double, Double>> {
+        val all = ArrayList<Map<Double, Double>>()
+        for (k in 1..n) { all.add(pass(bands, overDb) { progress("pass $k/$n: $it") }); if (cancelled) break }
+        return all
+    }
+
+    class WatchResult(val profile: RfSweep.BurstProfile, val peakDb: Double, val floorDb: Double)
+
+    /**
+     * Sit on one frequency for [seconds] and record when it is on. The target is parked [OFFSET_HZ] off the window centre so the dongle's
+     * centre spike never sits on it. Each [STEP_MS] slice is on when the target bin beats the local floor by [overDb].
+     */
+    fun watch(hz: Double, seconds: Int, overDb: Double = RfSweep.FLAG_DB, progress: (String) -> Unit = {}): WatchResult {
+        src.tune(hz + OFFSET_HZ, RfSweep.RATE)
+        src.read(1 shl 18)
+        val binHz = RfSweep.RATE.toDouble() / RfSweep.FFT_N
+        val sig = RfSweep.FFT_N / 2 - Math.round(OFFSET_HZ / binHz).toInt()
+        val bytes = RfSweep.RATE * 2 * STEP_MS / 1000
+        val sigDb = ArrayList<Double>(); val floors = ArrayList<Double>()
+        val slices = seconds * 1000 / STEP_MS
+        for (i in 0 until slices) {
+            if (cancelled) break
+            if (i % 20 == 0) progress("Watching ${"%.3f".format(hz / 1e6)} MHz  ${i * 100 / slices}%")
+            val db = RfSweep.spectrumDb(src.read(bytes))
+            sigDb.add((sig - 1..sig + 1).maxOf { db[it] })
+            val ring = (sig - 120..sig + 120).filter { Math.abs(it - sig) > 20 }.map { db[it] }.sorted()   // floor from bins either side, away from the signal
+            floors.add(ring[ring.size / 2])
+        }
+        if (sigDb.isEmpty()) return WatchResult(RfSweep.burstProfile(BooleanArray(0), STEP_MS), -999.0, -999.0)
+        val floor = floors.sorted()[floors.size / 2]
+        val on = BooleanArray(sigDb.size) { sigDb[it] - floors[it] >= overDb }
+        return WatchResult(RfSweep.burstProfile(on, STEP_MS), sigDb.max(), floor)
+    }
+
+    companion object {
+        const val OFFSET_HZ = 300_000.0
+        const val STEP_MS = 100
+    }
+
     class ToneResult(val target: RfSweep.ToneScore, val controls: List<Pair<Double, RfSweep.ToneScore>>, val verdict: Verdict)
 
     /** Capture one demodulated measurement while [play] starts the pattern (it must return immediately and play asynchronously). */

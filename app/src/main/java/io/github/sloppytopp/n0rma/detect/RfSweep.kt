@@ -290,6 +290,49 @@ object RfSweep {
     fun pickCarrierControl(target: Double, baseline: Collection<Double>): Double? =
         baseline.filter { abs(it - target) in 300e3..20e6 }.minByOrNull { abs(it - target) }
 
+
+    // ---- intermittent ("in and out") signals ---------------------------------------------------------------------------------
+
+    /** A carrier that appeared in [hits] of [passes] sweeps, never steadily enough to enter a baseline. */
+    data class Flicker(val hz: Double, val hits: Int, val passes: Int, val db: Double)
+
+    /**
+     * Carriers seen in some but not most passes and absent from the baseline: the bursty, keyed or battery-saving transmitters a steady
+     * scan throws away. A single sighting is noise or a passing car, so at least [minHits] passes are needed. Still only a WATCH.
+     */
+    fun intermittent(passes: List<Map<Double, Double>>, baseline: Collection<Double>, minHits: Int = 2): List<Flicker> {
+        if (passes.size < 2) return emptyList()
+        val seen = HashMap<Double, MutableList<Double>>()
+        passes.forEach { p -> p.forEach { (f, d) -> seen.getOrPut(f) { ArrayList() }.add(d) } }
+        val base = baseline.sorted()
+        return seen.filter { (f, v) -> v.size >= minHits && v.size.toDouble() / passes.size < PERSIST && base.none { abs(f - it) <= MATCH_HZ } }
+            .map { (f, v) -> Flicker(f, v.size, passes.size, v.max()) }
+            .sortedWith(compareByDescending<Flicker> { it.hits }.thenByDescending { it.db })
+    }
+
+    /** What a watched frequency did over time. [periodMs] is the median gap between turn-on moments, null if it never repeated. */
+    data class BurstProfile(val onShare: Double, val transitions: Int, val medianOnMs: Long, val medianOffMs: Long, val periodMs: Long?)
+
+    fun burstProfile(on: BooleanArray, stepMs: Int): BurstProfile {
+        if (on.isEmpty()) return BurstProfile(0.0, 0, 0, 0, null)
+        val onRuns = ArrayList<Int>(); val offRuns = ArrayList<Int>(); val risings = ArrayList<Int>()
+        var run = 1
+        for (i in 1 until on.size) {
+            if (on[i] == on[i - 1]) run++ else {
+                (if (on[i - 1]) onRuns else offRuns).add(run); run = 1
+                if (on[i]) risings.add(i)
+            }
+        }
+        // the first and last runs are cut off by the observation window, so they say nothing about length
+        fun med(l: List<Int>) = if (l.isEmpty()) 0L else l.sorted()[l.size / 2].toLong() * stepMs
+        val trimOn = if (on.first()) onRuns.drop(1) else onRuns
+        val trimOff = if (!on.first()) offRuns.drop(1) else offRuns
+        val gaps = risings.zipWithNext { a, b -> (b - a) * stepMs.toLong() }.sorted()
+        val transitions = (1 until on.size).count { on[it] != on[it - 1] }
+        return BurstProfile(on.count { it }.toDouble() / on.size, transitions,
+            med(trimOn), med(trimOff), gaps.getOrNull(gaps.size / 2))
+    }
+
     // ---- baseline storage format --------------------------------------------------------------------------------------------
 
     data class Baseline(val ts: Long, val gainTenthsDb: Int, val carriers: List<Double>) {

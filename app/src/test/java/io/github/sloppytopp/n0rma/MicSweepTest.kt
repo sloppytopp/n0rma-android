@@ -19,6 +19,8 @@ class SynthSource(
     private val bugHz: Double? = null,
     private val leak: Double = 0.0,                                     // tone leaking into every channel (phone/dongle coupling)
     private val noise: Double = 0.03,
+    private val burstHz: Double? = null,                                // carrier that comes and goes, switched by [gate] once per read()
+    private val gate: () -> Boolean = { true },
 ) : IqSource {
     private var tuned = 0.0
     private var rate = RfSweep.RATE
@@ -41,6 +43,7 @@ class SynthSource(
     override fun close() {}
     override fun read(n: Int): ByteArray {
         val out = ByteArray(n)
+        val burstNow = burstHz != null && gate()
         for (s in 0 until n / 2) {
             val t = s.toDouble() / rate
             var re = rnd.nextGaussian() * noise; var im = rnd.nextGaussian() * noise
@@ -50,6 +53,7 @@ class SynthSource(
                 val pm = if (leak > 0 && rate == RfSweep.DEMOD_RATE && toneOn(clock + s)) leak * 8 * sin(2 * PI * RfSweep.TONE_HZ * (clock + s) / rate) else 0.0
                 if (kotlin.math.abs(off) < rate / 2.0) { re += a * cos(2 * PI * off * t + pm); im += a * sin(2 * PI * off * t + pm) }
             }
+            if (burstNow && kotlin.math.abs(burstHz!! - tuned) < rate / 2.0) { val off = burstHz - tuned; re += 0.3 * cos(2 * PI * off * t); im += 0.3 * sin(2 * PI * off * t) }
             if (rate == RfSweep.DEMOD_RATE) {
                 val i = clock + s
                 val audio = if (toneOn(i)) sin(2 * PI * RfSweep.TONE_HZ * i / rate) else 0.0
@@ -154,6 +158,39 @@ class MicSweepTest {
         assertEquals(Verdict.POSSIBLE, RfSweep.verdict(t, emptyList()))
         assertEquals(Verdict.COUPLING, RfSweep.verdict(t, listOf(quiet, RfSweep.ToneScore(0.9, 10.0, 0.004, 100))))
         assertEquals(Verdict.CONFIRMED, RfSweep.verdict(t, listOf(quiet, quiet)))
+    }
+
+    @Test fun intermittentCarrierIsFoundSteadyOneIsNot() {
+        val band = listOf(RfSweep.Band("t", 430e6, 437e6))
+        var on = false
+        val src = SynthSource(steady = listOf(431.5e6 to 0.2), burstHz = 433.92e6, gate = { on })
+        val sw = MicSweeper(src, 300)
+        val passes = (0 until 6).map { on = it % 2 == 0; sw.pass(band, RfSweep.FLAG_DB) }
+        val found = RfSweep.intermittent(passes, emptyList())
+        assertEquals(1, found.size)
+        assertEquals(433.92e6, found[0].hz, 50e3)
+        assertEquals(3, found[0].hits)
+        assertTrue(RfSweep.intermittent(passes, listOf(433.92e6)).isEmpty())          // a baselined carrier is never reported
+    }
+
+    @Test fun burstProfileReadsTheRhythm() {
+        val on = BooleanArray(60) { (it / 5) % 2 == 1 }                                 // 500 ms off, 500 ms on, at 100 ms steps
+        val p = RfSweep.burstProfile(on, 100)
+        assertEquals(0.5, p.onShare, 0.02)
+        assertEquals(500L, p.medianOnMs); assertEquals(500L, p.medianOffMs); assertEquals(1000L, p.periodMs)
+        assertEquals(0, RfSweep.burstProfile(BooleanArray(20), 100).transitions)
+        assertNull(RfSweep.burstProfile(BooleanArray(20) { true }, 100).periodMs)
+    }
+
+    @Test fun watchSeesOnOffPatternAndSteadyIsSteady() {
+        var n = 0
+        val bursty = MicSweeper(SynthSource(burstHz = 433.92e6, gate = { (n++ / 4) % 2 == 0 }), 300).watch(433.92e6, 12)
+        assertTrue(bursty.profile.transitions >= 2)
+        assertTrue(bursty.profile.onShare in 0.2..0.8)
+        val steady = MicSweeper(SynthSource(steady = listOf(433.92e6 to 0.3)), 300).watch(433.92e6, 6)
+        assertEquals(0, steady.profile.transitions); assertEquals(1.0, steady.profile.onShare, 0.0)
+        val silent = MicSweeper(SynthSource(), 300).watch(433.92e6, 6)
+        assertEquals(0.0, silent.profile.onShare, 0.0)
     }
 
     @Test fun rtlTcpSpeaksTheProtocol() {

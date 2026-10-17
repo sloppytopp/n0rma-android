@@ -48,6 +48,15 @@ fun MicScreen() {
         Text("3. Scan", color = UiColors.text, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
         TextButton(onClick = { Mic.scan() }, enabled = !Mic.busy && base != null) { Text("Scan for new carriers (about 15 min)") }
 
+        Text("Signal that comes and goes?", color = UiColors.text, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
+        Text("The normal scan only keeps steady carriers. This runs 12 quick passes and lists carriers that appear in some but not most of them (keyed, burst or " +
+            "battery-saving transmitters). Then pick one below, or type a frequency, and Watch it for 2 minutes to see its on/off rhythm.", color = UiColors.faint, fontSize = 11.sp)
+        TextButton(onClick = { Mic.burstScan() }, enabled = !Mic.busy && base != null) { Text("Burst scan (about 15 min)") }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("Watch the MHz typed below for 2 min", color = UiColors.dim, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            TextButton(onClick = { mhz.toDoubleOrNull()?.let { Mic.watch(it) } }, enabled = !Mic.busy && mhz.toDoubleOrNull() != null) { Text("Watch") }
+        }
+
         Text("4. Tone test a frequency", color = UiColors.text, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
         Text("Stay in the room, nobody talking, phone speaker facing the suspect spot. The phone plays tones at full volume for about 25 seconds, then measures a control frequency or two.", color = UiColors.faint, fontSize = 11.sp)
         Mic.candidates.forEach { (f, d) ->

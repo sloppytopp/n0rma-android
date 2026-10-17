@@ -90,6 +90,40 @@ object Mic {
         }
     }
 
+    /** Many quick passes; reports carriers that appear in some but not most of them (bursty / keyed / duty-cycled transmitters). */
+    fun burstScan(passes: Int = 12) = work("Burst scan") { sw ->
+        val b = baseline() ?: run { say("Record a baseline first (quiet house, your own gear on)"); return@work }
+        if (b.gainTenthsDb != GAIN) { say("Baseline was recorded at a different gain; record it again"); return@work }
+        val all = sw.rawPasses(passes, RfSweep.BANDS, RfSweep.FLAG_DB) { say(it) }
+        if (sw.cancelled) { say("Cancelled"); return@work }
+        val found = RfSweep.intermittent(all, b.carriers)
+        candidates = found.map { it.hz to it.db }
+        if (found.isEmpty()) { say("No in-and-out carriers found"); line("Burst scan: nothing intermittent") }
+        else {
+            say("${found.size} intermittent carrier(s): use Watch to see its on/off pattern")
+            found.forEach {
+                val m = "Intermittent carrier ${"%.3f".format(it.hz / 1e6)} MHz (${it.db.toInt()} dB) in ${it.hits} of ${it.passes} passes, ${RfSweep.bandOf(it.hz)}; not tone-tested"
+                line(m); event(Level.WATCH, m)
+            }
+        }
+    }
+
+    /** Park on one frequency and log its on/off pattern. Describes the signal; it never says what the signal is. */
+    fun watch(mhz: Double, seconds: Int = 120) = work("Watch") { sw ->
+        val r = sw.watch(mhz * 1e6, seconds) { say(it) }
+        if (sw.cancelled) { say("Cancelled"); return@work }
+        val p = r.profile
+        val head = "${"%.3f".format(mhz)} MHz"
+        val m = when {
+            p.transitions == 0 && p.onShare == 0.0 -> "$head: silent for ${seconds}s"
+            p.transitions == 0 -> "$head: steady the whole ${seconds}s (${r.peakDb.toInt()} dB, floor ${r.floorDb.toInt()} dB)"
+            else -> "$head: on ${(p.onShare * 100).toInt()}% of ${seconds}s, ${p.transitions} switches, typical burst ${p.medianOnMs} ms, gap ${p.medianOffMs} ms" +
+                (p.periodMs?.let { ", repeats about every ${"%.1f".format(it / 1000.0)} s" } ?: "") + " (${r.peakDb.toInt()} dB)"
+        }
+        say(m); line(m)
+        if (p.transitions > 0) event(Level.WATCH, "Mic sweep: $m")
+    }
+
     fun toneTest(ctx: Context, mhz: Double) = work("Tone test") { sw ->
         val out = ToneOut(ctx.applicationContext)
         try {
