@@ -60,10 +60,17 @@ object PresenceSummary {
             val a = maxOf(s, from); val b = minOf(end, now)
             if (b >= a && end >= from) ivs.getOrPut(k) { ArrayList() }.add(a..b)
         }
-        for (e in sorted) when (e.kind) {
-            PresenceEvent.SEEN -> { if (e.key !in open) open[e.key] = e.ts; labels[e.key] = e.label }
-            PresenceEvent.GONE -> close(e.key, e.ts)
-            PresenceEvent.STOP -> open.keys.toList().forEach { close(it, e.ts) }
+        var lastTs = 0L
+        for (e in sorted) {
+            when (e.kind) {
+                PresenceEvent.SEEN -> { if (e.key !in open) open[e.key] = e.ts; labels[e.key] = e.label }
+                PresenceEvent.GONE -> close(e.key, e.ts)
+                PresenceEvent.STOP -> open.keys.toList().forEach { close(it, e.ts) }
+                // a START while sources are still open means the previous run died without saying so (app killed or reinstalled):
+                // end them at the last thing we logged, since nothing is known after that
+                PresenceEvent.START -> open.keys.toList().forEach { close(it, lastTs) }
+            }
+            lastTs = e.ts
         }
         open.keys.toList().forEach { close(it, endOpen) }
         return ivs.map { (k, l) -> PresenceSource(k, labels[k] ?: k, l, hidden = labels[k] == "(hidden)") }
@@ -74,9 +81,13 @@ object PresenceSummary {
         val from = now - windowMs
         var start: Long? = null
         var total = 0L
-        for (e in events.filter { it.key == "*" }.sortedBy { it.ts }) {
-            if (e.kind == PresenceEvent.START) start = e.ts
-            else if (e.kind == PresenceEvent.STOP && start != null) { total += maxOf(0L, minOf(e.ts, now) - maxOf(start, from)); start = null }
+        var lastTs = 0L
+        for (e in events.sortedBy { it.ts }) {
+            if (e.key == "*" && e.kind == PresenceEvent.START) {
+                if (start != null) total += maxOf(0L, minOf(lastTs, now) - maxOf(start, from)) // previous run died without a stop marker
+                start = e.ts
+            } else if (e.key == "*" && e.kind == PresenceEvent.STOP && start != null) { total += maxOf(0L, minOf(e.ts, now) - maxOf(start, from)); start = null }
+            lastTs = e.ts
         }
         if (start != null && scanningNow) total += maxOf(0L, now - maxOf(start, from))
         return total

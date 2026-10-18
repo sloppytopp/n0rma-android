@@ -55,4 +55,17 @@ class PresenceTest {
         assertEquals(1, src.appearances); assertEquals(200L, src.totalMs); assertTrue(src.hidden)
         assertEquals(300L + 1000L, PresenceSummary.scanningMs(ev, 2000, 5000, true))
     }
+
+    @Test fun aKilledRunDoesNotStretchPresenceIntoTheNextRun() {
+        val ev = listOf(
+            PresenceEvent(0, "*", "start", "start", 0, 0),
+            PresenceEvent(100, "wifi:x", "(hidden)", "seen", -50, 0),
+            PresenceEvent(5000, "*", "start", "start", 0, 0),          // no stop before it: the app was killed
+            PresenceEvent(5010, "wifi:x", "(hidden)", "seen", -50, 0),
+        )
+        val src = PresenceSummary.build(ev, 6000, 10_000, true).single()
+        assertEquals(2, src.appearances)
+        assertEquals(990L, src.totalMs)                                                                         // first run ends at its last log (100), second is 5010..6000
+        assertEquals(100L + 1000L, PresenceSummary.scanningMs(ev, 6000, 10_000, true))                          // 0..100 then 5000..6000
+    }
 }
