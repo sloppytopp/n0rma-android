@@ -35,6 +35,8 @@ object Prefs {
     var mySsids by mutableStateOf<Set<String>>(emptySet()); private set
     var welcomed by mutableStateOf(false); private set
     var myDevices by mutableStateOf<Set<String>>(emptySet()); private set
+    /** Devices ("wifi:<bssid>") the user pinned: N0RMA alerts when one comes back into range. */
+    var watched by mutableStateOf<Set<String>>(emptySet()); private set
     var discreet by mutableStateOf(false); private set
     var rooms by mutableStateOf<List<String>>(emptyList()); private set
     var hasPin by mutableStateOf(false); private set
@@ -54,6 +56,7 @@ object Prefs {
         if (sp.contains("home_lat")) home = Home(Double.fromBits(sp.getLong("home_lat", 0)), Double.fromBits(sp.getLong("home_lon", 0)), sp.getString("home_note", "") ?: "")
         welcomed = sp.getBoolean("welcomed", false)
         myDevices = sp.getStringSet("my_devices", emptySet()) ?: emptySet()
+        watched = sp.getStringSet("watched", emptySet()) ?: emptySet()
         discreet = sp.getBoolean("discreet", false)
         rooms = (sp.getString("rooms", "") ?: "").split("|").filter { it.isNotBlank() }
         hasPin = sp.contains("pin_hash")
@@ -74,6 +77,8 @@ object Prefs {
 
     fun isMine(addr: String) = addr in myDevices
     fun markMine(addr: String) { myDevices = myDevices + addr; sp.edit().putStringSet("my_devices", myDevices).apply() }
+    fun watch(key: String) { watched = watched + key; sp.edit().putStringSet("watched", watched).apply() }
+    fun unwatch(key: String) { watched = watched - key; sp.edit().putStringSet("watched", watched).apply() }
     fun unmarkMine(addr: String) { myDevices = myDevices - addr; sp.edit().putStringSet("my_devices", myDevices).apply() }
     fun saveWelcomed() { welcomed = true; sp.edit().putBoolean("welcomed", true).apply() }
     fun saveMicBaseline(v: String) { micBaseline = v; sp.edit().putString("mic_baseline", v).apply() }

@@ -16,11 +16,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -39,10 +41,10 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-// THROWAWAY SPIKE (branch spike/dual-radar): two proximity scopes (Bluetooth, Wi-Fi) with plain-language results underneath.
+// Two proximity scopes (Bluetooth, Wi-Fi) with plain-language result cards underneath.
 // Distance comes from signal strength; the angle of a dot carries NO meaning (a phone can't measure direction), and the screen says so.
 
-private data class Item(val key: String, val title: String, val sentence: String, val meters: Double, val color: Color, val flagged: Boolean, val bt: Boolean)
+private data class Item(val key: String, val title: String, val sentence: String, val meters: Double, val color: Color, val flagged: Boolean, val bt: Boolean, val detail: String = "", val ssid: String = "")
 
 private val bandEdges = doubleArrayOf(0.0, 3.0, 8.0, 25.0, 60.0)
 private val bandFrac = doubleArrayOf(0.0, 0.25, 0.5, 0.75, 0.95)
@@ -62,23 +64,27 @@ private fun items(s: Snapshot): List<Item> {
     val out = ArrayList<Item>()
     for (w in s.wifi) {
         val m = Geo.rssiToMeters(w.level, -45)
-        val mine = w.ssid in Prefs.mySsids
+        val mine = w.ssid in Prefs.mySsids || Prefs.isMine("wifi:" + w.bssid)
         val hidden = w.ssid.isBlank() || w.ssid == "(hidden)"
         val cam = w.klass == "camera" || w.klass == "drone"
         val (sentence, col, flag) = when {
+            cam && m >= 25 -> Triple("Looks like a camera's Wi-Fi, but it's far away - most likely a neighbor's. Only a concern if it gets stronger.", UiColors.watch, false)
             cam -> Triple("Looks like a camera or drone link, ${band(m)}. Worth a look.", UiColors.alert, true)
             mine -> Triple("Your network.", UiColors.good, false)
             hidden && m < 8 -> Triple("A hidden network ${band(m)}. It doesn't broadcast a name, so check whether one of your devices makes it.", UiColors.watch, true)
             hidden -> Triple("A hidden network, ${band(m)}.", UiColors.neutral, false)
             else -> Triple("A Wi-Fi network, ${band(m)}.", UiColors.neutral, false)
         }
-        out += Item("wifi:" + w.bssid, w.ssid.ifBlank { "(hidden)" }, sentence, m, col, flag, bt = false)
+        out += Item("wifi:" + w.bssid, w.ssid.ifBlank { "(hidden)" }, sentence, m, col, flag, bt = false,
+            detail = "MAC (BSSID): ${w.bssid}\nMaker: ${w.vendor.ifEmpty { "unknown (private address)" }}\nSignal: ${w.level} dBm (about ${"%.0f".format(m)} m)\nChannel frequency: ${w.freq} MHz\nSecurity: ${w.caps.ifEmpty { "unknown" }}",
+            ssid = w.ssid)
     }
     for (t in s.trackers) {
         val m = Geo.rssiToMeters(t.rssi, -59)
         val name = t.label.substringBefore(" SEPARATED")
-        out += if (t.mine) Item("ble:" + t.addr, name, "Your tracker.", m, UiColors.good, false, true)
-        else Item("ble:" + t.addr, name, "A tracker that isn't yours, ${band(m)}. Seen for ${maxOf(1, t.seenS / 60)} min.", m, UiColors.watch, true, true)
+        val det = "Address: ${t.addr}\nSignal: ${t.rssi} dBm (about ${"%.0f".format(m)} m)\nHeard for: ${t.seenS} s"
+        out += if (t.mine) Item("ble:" + t.addr, name, "Your tracker.", m, UiColors.good, false, true, det)
+        else Item("ble:" + t.addr, name, "A tracker that isn't yours, ${band(m)}. Seen for ${maxOf(1, t.seenS / 60)} min.", m, UiColors.watch, true, true, det)
     }
     return out
 }
@@ -117,7 +123,7 @@ private fun Scope(title: String, list: List<Item>, modifier: Modifier) {
 }
 
 @Composable
-fun SpikeRadars(s: Snapshot) {
+fun RadarPair(s: Snapshot) {
     val hist = remember { mutableStateMapOf<String, List<Int>>() }
     LaunchedEffect(Unit) {
         while (true) {
@@ -133,14 +139,14 @@ fun SpikeRadars(s: Snapshot) {
     val check = all.count { it.flagged }
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            if (s.running) "● Scanning  ·  ${wf.size} Wi-Fi networks  ·  ${bt.size} Bluetooth trackers heard" else "Not scanning. Tap Start on the Status tab.",
+            if (s.running) "● Scanning  ·  ${wf.size} Wi-Fi networks  ·  ${bt.size} Bluetooth trackers heard" else "Not scanning. Tap Scan above.",
             color = if (s.running) UiColors.good else UiColors.dim, fontSize = 13.sp,
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Scope("Bluetooth", bt, Modifier.weight(1f))
             Scope("Wi-Fi", wf, Modifier.weight(1f))
         }
-        Text("Closer to the middle = closer to you. Distance is estimated from signal strength and can be off indoors. The angle of a dot means nothing: a phone can't tell direction. Tap Find on a result to get direction.", color = UiColors.dim, fontSize = 11.sp)
+        Text("Closer to the middle = closer to you. Distance is estimated from signal strength and can be off indoors. The angle of a dot means nothing: a phone can't tell direction. Tap Find it on a result to get direction.", color = UiColors.dim, fontSize = 11.sp)
         Text(
             if (check == 0) "Nothing needs your attention." else "$check to check",
             color = if (check == 0) UiColors.good else UiColors.watch, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
@@ -155,6 +161,20 @@ fun SpikeRadars(s: Snapshot) {
                 }
                 Text(it.sentence, color = UiColors.text, fontSize = 13.sp)
                 if (trend.isNotEmpty()) Text(trend, color = UiColors.dim, fontSize = 12.sp)
+                var open by androidx.compose.runtime.saveable.rememberSaveable(it.key) { androidx.compose.runtime.mutableStateOf(false) }
+                if (open) Text(it.detail, color = UiColors.dim, fontSize = 12.sp)
+                val mine = it.color == UiColors.good
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    TextButton(onClick = { Monitor.finding = (if (it.bt) it.key.removePrefix("ble:") else it.key) to it.title }) { Text("Find it", fontSize = 13.sp) }
+                    if (!mine) TextButton(onClick = {
+                        if (it.bt) Prefs.markMine(it.key.removePrefix("ble:")) else if (it.ssid.isNotBlank() && it.ssid != "(hidden)") Prefs.learnSsid(it.ssid) else Prefs.markMine(it.key)
+                        Monitor.refresh()
+                    }) { Text("This is mine", fontSize = 13.sp) }
+                    if (!it.bt) TextButton(onClick = { if (it.key in Prefs.watched) Prefs.unwatch(it.key) else Prefs.watch(it.key) }) {
+                        Text(if (it.key in Prefs.watched) "Stop watching" else "Watch it", fontSize = 13.sp)
+                    }
+                    TextButton(onClick = { open = !open }) { Text(if (open) "Hide details" else "Details", fontSize = 13.sp) }
+                }
             }
         }
     }

@@ -155,6 +155,7 @@ private fun Root() {
     }
     if (Monitor.locked) { LockScreen(); return }
     Monitor.hunt?.let { d -> HuntHost(d) { Monitor.hunt = null } }
+    Monitor.finding?.let { (addr, label) -> io.github.sloppytopp.n0rma.ui.Finder(addr, label) { Monitor.finding = null } }
     Box(Modifier.fillMaxSize().background(UiColors.bg)) {
     if (Prefs.hacker) MatrixRain(boost = tab == 3)
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -191,7 +192,7 @@ private fun Root() {
                 0 -> StatusScreen()
                 1 -> NearbyScreen()
                 2 -> RoomsScreen()
-                3 -> { io.github.sloppytopp.n0rma.ui.SpikeRadars(Monitor.snapshot); RadarView(Monitor.snapshot); Text("Drone map", color = UiColors.text, fontSize = 16.sp); DroneMapView(Monitor.snapshot); SurveyCard() }
+                3 -> { RadarView(Monitor.snapshot); Text("Drone map", color = UiColors.text, fontSize = 16.sp); DroneMapView(Monitor.snapshot); SurveyCard() }
                 4 -> HistoryScreen()
                 5 -> SettingsScreen()
                 6 -> SmartScreen()

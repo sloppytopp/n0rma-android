@@ -45,6 +45,7 @@ fun CalmHome(s: Snapshot, onToggleScan: () -> Unit, goTab: (Int) -> Unit) {
     val now = System.currentTimeMillis()
     var filter by remember { mutableStateOf(TimelineFilter.ALL) }
     var showChecklist by remember { mutableStateOf(false) }
+    var showUnresolved by remember { mutableStateOf(false) }
     // The live snapshot's events change as scanning runs; the stored ones cover the last 3 days
     val stored = remember(s.events.size) { Store.events(now - 72 * 3_600_000L, 300) }
     val events = remember(stored, s.events) { (stored + s.events).distinctBy { Timeline.key(it) } }
@@ -70,7 +71,8 @@ fun CalmHome(s: Snapshot, onToggleScan: () -> Unit, goTab: (Int) -> Unit) {
         Text("${headLevel.icon}  $head", color = headLevel.accentC(), fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
         Text(
             if (!s.running) "Tap Scan to check what's around you." else
-                if (unresolved == 0) "Nothing needs your attention." else "$unresolved ${if (unresolved == 1) "item" else "items"} not yet resolved.",
+                if (worst == DLevel.ALERT || worst == DLevel.WATCH) listOf(s.drone, s.tracker, s.camera, s.spam).maxByOrNull { it.level.ordinal }!!.message
+                else if (unresolved == 0) "Nothing needs your attention." else "$unresolved earlier ${if (unresolved == 1) "item" else "items"} to review. Tap Unresolved below.",
             color = UiColors.dim, fontSize = 15.sp,
         )
     }
@@ -85,10 +87,26 @@ fun CalmHome(s: Snapshot, onToggleScan: () -> Unit, goTab: (Int) -> Unit) {
         TextButton(onClick = { io.github.sloppytopp.n0rma.scan.Demo.start() }) { Text("Try it with sample data (nothing real is scanned)", fontSize = 13.sp) }
     s.error?.let { Text(it, color = UiColors.warn, fontSize = 14.sp) }
 
+    RadarPair(s)
+
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         InfoCard("Active scans", if (s.running) "On" else "Off", if (s.running) "Bluetooth, Wi-Fi" else "Not running", Modifier.weight(1f))
-        InfoCard("Unresolved", "$unresolved", if (unresolved == 0) "None" else "Review below", Modifier.weight(1f), if (unresolved > 0) Level.WATCH else Level.OK)
+        InfoCard("Unresolved", "$unresolved", if (unresolved == 0) "None" else if (showUnresolved) "Tap to hide" else "Tap to review", Modifier.weight(1f), if (unresolved > 0) Level.WATCH else Level.OK,
+            onClick = if (unresolved > 0) ({ showUnresolved = !showUnresolved }) else null)
         InfoCard("Evidence", "Report", "Tap export", Modifier.weight(1f), onClick = { shareEvidenceReport(ctx) })
+    }
+
+    if (showUnresolved) {
+        Text("To review", color = UiColors.text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        val fmtU = SimpleDateFormat("EEE h:mm a", Locale.getDefault())
+        events.filter { (it.level == DLevel.WATCH || it.level == DLevel.ALERT) && Timeline.key(it) !in Prefs.resolved }.sortedByDescending { it.ts }.take(30).forEach { e ->
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(UiColors.card).padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(fmtU.format(Date(e.ts)), color = UiColors.dim, fontSize = 13.sp)
+                Text(e.msg, color = UiColors.text, fontSize = 15.sp)
+                Text(whatItMeans(e.domain), color = UiColors.dim, fontSize = 13.sp)
+                TextButton(onClick = { Prefs.toggleResolved(Timeline.key(e)) }) { Text("It's fine - mark resolved", fontSize = 14.sp) }
+            }
+        }
     }
 
     RebaselineCard(s)
@@ -152,4 +170,13 @@ private fun ActionRow(label: String, onClick: () -> Unit) {
         Text(label, color = UiColors.text, fontSize = 16.sp, modifier = Modifier.weight(1f))
         Text("›", color = UiColors.dim, fontSize = 18.sp)
     }
+}
+
+/** One plain sentence on what a flagged event usually means and what to do, for people who aren't technical. */
+private fun whatItMeans(domain: String) = when (domain) {
+    "camera" -> "A Wi-Fi network whose name or maker looks like a camera. Most are a neighbor's camera or doorbell. It only matters if it stays strong where you are, and then Find it will help you locate it."
+    "tracker" -> "A Bluetooth tag (like an AirTag or Tile) that isn't yours was heard near you. If it keeps showing up in different places, it may be traveling with you. Don't remove it yet - tap Find it first."
+    "drone" -> "A drone is broadcasting its ID nearby. Most are hobby flights. Note the time and where it was in the sky."
+    "spam" -> "Many Bluetooth pop-up requests arrived at once. That's usually a nuisance, not a tracker."
+    else -> "Something N0RMA noticed. Tap Mark resolved when you know what it is."
 }

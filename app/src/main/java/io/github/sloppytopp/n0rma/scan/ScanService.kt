@@ -63,9 +63,22 @@ class ScanService : Service() {
         val keep = pts.filter { surveyGate.keep(it) }
         if (keep.isNotEmpty()) { Store.addSurvey(keep); Monitor.surveyCount += keep.size }
     }
+    private var watchedHere: Set<String>? = null
+    /** Alert once when a pinned device comes back into range (absent at the previous check). The first check only records. */
+    private fun checkWatched() {
+        if (Prefs.watched.isEmpty()) { watchedHere = null; return }
+        val s = Monitor.snapshot
+        val now = s.wifi.filter { "wifi:" + it.bssid in Prefs.watched }.associateBy { "wifi:" + it.bssid }
+        val before = watchedHere
+        if (before != null) for ((k, w) in now) if (k !in before)
+            postAlert("wifi", "A device you're watching is back: ${w.ssid.ifBlank { "hidden network" }} (${w.bssid}).")
+        watchedHere = now.keys
+    }
+
     private val tick = object : Runnable {
         override fun run() {
             if (wifiN++ % (if (Monitor.hunt != null || Monitor.fastWifi) 5 else 10) == 0) wifi?.poke()   // ~30 s, or ~15 s while hunting
+            checkWatched()
             scanner?.setFast(Monitor.hunt != null || Monitor.fastWifi || Monitor.inspecting)
             Monitor.refresh()
             runCatching { syncSurvey() }

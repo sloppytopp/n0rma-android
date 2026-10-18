@@ -67,6 +67,9 @@ object Monitor {
     /** Which alert the user is currently hunting ("tracker" | "drone" | "camera"), or null. */
     var hunt by mutableStateOf<String?>(null)
 
+    /** Address and label of the device the hot/cold Finder is open for ("wifi:<bssid>" or a Bluetooth address), or null. */
+    var finding by mutableStateOf<Pair<String, String>?>(null)
+
     /** Ask the root screen to switch tabs (0 Status .. 5 Settings), e.g. "go set up a survey walk for this". Consumed once, then cleared. */
     var requestTab by mutableStateOf<Int?>(null)
 
