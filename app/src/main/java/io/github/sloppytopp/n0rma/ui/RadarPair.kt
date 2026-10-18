@@ -140,7 +140,7 @@ fun RadarPair(s: Snapshot, maxCards: Int = 10) {
     val check = all.count { it.flagged }
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            if (s.running) "● Scanning  ·  ${wf.size} Wi-Fi networks  ·  ${bt.size} Bluetooth trackers heard" else "Not scanning. Tap Scan above.",
+            if (s.running) "● Scanning  ·  ${wf.size} Wi-Fi networks  ·  ${bt.size} Bluetooth trackers heard" else "Not scanning. Start a scan above.",
             color = if (s.running) UiColors.good else UiColors.dim, fontSize = 13.sp,
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -148,7 +148,7 @@ fun RadarPair(s: Snapshot, maxCards: Int = 10) {
             Scope("Wi-Fi", wf, Modifier.weight(1f))
         }
         Text("Closer to the middle = closer to you. Distance is estimated from signal strength and can be off indoors. The angle of a dot means nothing: a phone can't tell direction. Tap Find it on a result to get direction.", color = UiColors.dim, fontSize = 11.sp)
-        Text(
+        if (s.running) Text(
             if (check == 0) "Nothing needs your attention." else "$check to check",
             color = if (check == 0) UiColors.good else UiColors.watch, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
         )
@@ -165,7 +165,8 @@ fun RadarPair(s: Snapshot, maxCards: Int = 10) {
                 var open by androidx.compose.runtime.saveable.rememberSaveable(it.key) { androidx.compose.runtime.mutableStateOf(false) }
                 if (open) Text(it.detail, color = UiColors.dim, fontSize = 12.sp)
                 val mine = it.color == UiColors.good
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     TextButton(onClick = { Monitor.finding = (if (it.bt) it.key.removePrefix("ble:") else it.key) to it.title }) { Text("Find it", fontSize = 13.sp) }
                     if (!mine) TextButton(onClick = {
                         if (it.bt) Prefs.markMine(it.key.removePrefix("ble:")) else if (it.ssid.isNotBlank() && it.ssid != "(hidden)") Prefs.learnSsid(it.ssid) else Prefs.markMine(it.key)
