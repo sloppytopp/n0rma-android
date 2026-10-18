@@ -191,7 +191,7 @@ private fun Root() {
                 0 -> StatusScreen()
                 1 -> NearbyScreen()
                 2 -> RoomsScreen()
-                3 -> { RadarView(Monitor.snapshot); Text("Drone map", color = UiColors.text, fontSize = 16.sp); DroneMapView(Monitor.snapshot); SurveyCard() }
+                3 -> { io.github.sloppytopp.n0rma.ui.SpikeRadars(Monitor.snapshot); RadarView(Monitor.snapshot); Text("Drone map", color = UiColors.text, fontSize = 16.sp); DroneMapView(Monitor.snapshot); SurveyCard() }
                 4 -> HistoryScreen()
                 5 -> SettingsScreen()
                 6 -> SmartScreen()
