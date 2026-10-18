@@ -31,6 +31,15 @@ class ScanService : Service() {
     private var locListener: LocationListener? = null
     private var lastWifiLogged = 0L
     private var lastLine: String? = null
+    private val presence = io.github.sloppytopp.n0rma.detect.PresenceTracker()
+    private var lastPresenceAt = 0L
+    private var stopMarked = true
+
+    private fun mark(kind: String) {
+        val e = io.github.sloppytopp.n0rma.detect.PresenceEvent(System.currentTimeMillis(), "*", if (kind == io.github.sloppytopp.n0rma.detect.PresenceEvent.START) "Scanning started" else "Scanning stopped", kind, 0, 0)
+        runCatching { Store.addPresence(listOf(e)) }
+    }
+    private fun markStop() { if (!stopMarked) { stopMarked = true; mark(io.github.sloppytopp.n0rma.detect.PresenceEvent.STOP) } }
     private val surveyGate = io.github.sloppytopp.n0rma.detect.SurveyGate()
 
     @android.annotation.SuppressLint("MissingPermission")
@@ -79,6 +88,12 @@ class ScanService : Service() {
         override fun run() {
             if (wifiN++ % (if (Monitor.hunt != null || Monitor.fastWifi) 5 else 10) == 0) wifi?.poke()   // ~30 s, or ~15 s while hunting
             checkWatched()
+            Monitor.snapshot.let { sn ->
+                if (sn.wifiAt != 0L && sn.wifiAt != lastPresenceAt) {
+                    lastPresenceAt = sn.wifiAt
+                    runCatching { Store.addPresence(presence.onScan(System.currentTimeMillis(), sn.wifi)) }
+                }
+            }
             scanner?.setFast(Monitor.hunt != null || Monitor.fastWifi || Monitor.inspecting)
             Monitor.refresh()
             runCatching { syncSurvey() }
@@ -102,6 +117,8 @@ class ScanService : Service() {
         if (intent?.action == ACTION_STOP) { stopScanning(); return START_NOT_STICKY }
         makeChannels()
         lastLine = null
+        presence.reset(); lastPresenceAt = 0L
+        if (stopMarked) { stopMarked = false; mark(io.github.sloppytopp.n0rma.detect.PresenceEvent.START) }
         val n = ongoing("Starting...")
         if (Build.VERSION.SDK_INT >= 29) startForeground(ONGOING_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         else startForeground(ONGOING_ID, n)
@@ -117,6 +134,7 @@ class ScanService : Service() {
     }
 
     private fun stopScanning() {
+        markStop()
         handler.removeCallbacks(tick)
         scanner?.stop(); scanner = null
         wifi?.stop(); wifi = null
@@ -128,6 +146,7 @@ class ScanService : Service() {
     }
 
     override fun onDestroy() {
+        markStop()
         handler.removeCallbacks(tick)
         scanner?.stop()
         wifi?.stop()

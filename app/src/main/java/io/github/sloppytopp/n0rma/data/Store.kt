@@ -19,14 +19,14 @@ object Store {
     private const val SURVEY_HARD_CAP = 40_000
 
     fun init(ctx: Context) {
-        helper = object : SQLiteOpenHelper(ctx, "n0rma.db", null, 5) {
+        helper = object : SQLiteOpenHelper(ctx, "n0rma.db", null, 6) {
             override fun onCreate(db: SQLiteDatabase) {
                 db.execSQL("CREATE TABLE events(id INTEGER PRIMARY KEY, ts INTEGER, domain TEXT, level TEXT, msg TEXT)")
                 db.execSQL("CREATE TABLE beeps(id INTEGER PRIMARY KEY, ts INTEGER)")
                 db.execSQL("CREATE INDEX ev_ts ON events(ts)")
-                createRoomTables(db); createSurveyTable(db); createTrailTable(db); createKnownNetTable(db)
+                createRoomTables(db); createSurveyTable(db); createTrailTable(db); createKnownNetTable(db); createPresenceTable(db)
             }
-            override fun onUpgrade(db: SQLiteDatabase, o: Int, n: Int) { if (o < 2) createRoomTables(db); if (o < 3) createSurveyTable(db); if (o < 4) createTrailTable(db); if (o < 5) createKnownNetTable(db) }
+            override fun onUpgrade(db: SQLiteDatabase, o: Int, n: Int) { if (o < 2) createRoomTables(db); if (o < 3) createSurveyTable(db); if (o < 4) createTrailTable(db); if (o < 5) createKnownNetTable(db); if (o < 6) createPresenceTable(db) }
         }
         prune()
         Thread { runCatching { thinSurvey() } }.start()   // off the UI thread: a long walk leaves tens of thousands of rows
@@ -34,6 +34,29 @@ object Store {
 
     private fun createKnownNetTable(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE IF NOT EXISTS known_net(bssid TEXT PRIMARY KEY, ts INTEGER)")
+    }
+
+    private fun createPresenceTable(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS presence(ts INTEGER, key TEXT, label TEXT, kind TEXT, rssi INTEGER, freq INTEGER)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS pr_ts ON presence(ts)")
+    }
+
+    @Synchronized fun addPresence(list: List<io.github.sloppytopp.n0rma.detect.PresenceEvent>) {
+        if (list.isEmpty()) return
+        val db = helper.writableDatabase
+        db.beginTransaction()
+        try {
+            list.forEach { e -> db.insert("presence", null, ContentValues().apply { put("ts", e.ts); put("key", e.key); put("label", e.label); put("kind", e.kind); put("rssi", e.rssi); put("freq", e.freq) }) }
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+    }
+
+    @Synchronized fun presenceSince(sinceMs: Long): List<io.github.sloppytopp.n0rma.detect.PresenceEvent> {
+        val out = ArrayList<io.github.sloppytopp.n0rma.detect.PresenceEvent>()
+        helper.readableDatabase.rawQuery("SELECT ts,key,label,kind,rssi,freq FROM presence WHERE ts>=? ORDER BY ts", arrayOf("$sinceMs")).use {
+            while (it.moveToNext()) out += io.github.sloppytopp.n0rma.detect.PresenceEvent(it.getLong(0), it.getString(1), it.getString(2), it.getString(3), it.getInt(4), it.getInt(5))
+        }
+        return out
     }
 
     @Synchronized fun addKnownNets(bssids: List<String>) {
@@ -192,6 +215,7 @@ object Store {
         helper.writableDatabase.delete("beeps", "ts<?", arrayOf("$cutoff"))
         helper.writableDatabase.delete("survey", "ts<?", arrayOf("$cutoff"))
         helper.writableDatabase.delete("trail", "ts<?", arrayOf("$cutoff"))
+        helper.writableDatabase.delete("presence", "ts<?", arrayOf("$cutoff"))
         helper.writableDatabase.delete("known_net", "ts<?", arrayOf("${System.currentTimeMillis() - 90 * 86_400_000L}"))
     }
 
@@ -202,6 +226,7 @@ object Store {
         helper.writableDatabase.delete("room_scan", null, null)
         helper.writableDatabase.delete("survey", null, null)
         helper.writableDatabase.delete("trail", null, null)
+        helper.writableDatabase.delete("presence", null, null)
         helper.writableDatabase.delete("known_net", null, null)
     }
 }

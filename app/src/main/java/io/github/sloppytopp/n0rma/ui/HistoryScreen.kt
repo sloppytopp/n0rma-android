@@ -38,6 +38,7 @@ fun HistoryScreen() {
     val f = SimpleDateFormat("EEE HH:mm:ss", Locale.US)
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        PresenceLog()
         Text("Sensor beep log", color = UiColors.text, fontSize = 16.sp)
         Text("Tap each time your motion sensor beeps. N0RMA then checks whether anything it detects lines up with the beeps - and how often something is nearby anyway.",
             color = UiColors.dim, fontSize = 12.sp)
