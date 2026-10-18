@@ -3,7 +3,7 @@ package io.github.sloppytopp.n0rma.detect
 enum class Verdict { INSIDE, UNCLEAR, OUTSIDE, MINE }
 
 /** [room] is the loudest room when the device is clearly louder in one (by [HouseWalk.ROOM_MARGIN_DB]) or was heard in only one; null = strong in every room. */
-data class WalkFinding(val key: String, val kind: String, val label: String, val verdict: Verdict, val room: String?, val maxRssi: Double, val rooms: Int)
+data class WalkFinding(val key: String, val kind: String, val label: String, val verdict: Verdict, val room: String?, val maxRssi: Double, val rooms: Int, val nameOnly: Boolean = false)
 
 /**
  * Reads a walk through the house (one sweep per room, no GPS) and says what is probably inside the home and what is a neighbor's.
@@ -14,7 +14,8 @@ object HouseWalk {
     const val OUTSIDE_DBM = -60.0
     const val ROOM_MARGIN_DB = 8.0
 
-    fun report(scans: Collection<RoomScan>, isMine: (RoomItem) -> Boolean): List<WalkFinding> {
+    /** [isMine]: this exact device (BSSID / address) was confirmed by the user. [usesMyName]: a Wi-Fi network that only shares one of the user's SSIDs, which anyone can copy, so it is never hidden as "yours". */
+    fun report(scans: Collection<RoomScan>, isMine: (RoomItem) -> Boolean, usesMyName: (RoomItem) -> Boolean = { false }): List<WalkFinding> {
         val all = scans.flatMap { s -> s.items.map { s.room to it } }
             .filter { (_, i) -> i.kind != "ble" || i.label != "Bluetooth device" } // phones and watches rotate their address
         return all.groupBy { it.second.key }.map { (key, hits) ->
@@ -29,7 +30,7 @@ object HouseWalk {
                 item.rssi <= OUTSIDE_DBM -> Verdict.OUTSIDE
                 else -> Verdict.UNCLEAR
             }
-            WalkFinding(key, item.kind, item.label, verdict, room, item.rssi, hits.size)
+            WalkFinding(key, item.kind, item.label, verdict, room, item.rssi, hits.size, nameOnly = verdict != Verdict.MINE && usesMyName(item))
         }.sortedWith(compareBy<WalkFinding> { it.verdict.ordinal }.thenByDescending { it.maxRssi })
     }
 }

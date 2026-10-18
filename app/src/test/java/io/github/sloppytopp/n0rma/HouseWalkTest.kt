@@ -18,15 +18,20 @@ class HouseWalkTest {
         wifi("hal", "HAL9000", -66.0), wifi("hidden", "", -44.0), wifi("router", "guest", -35.0),
         RoomItem("ble:tag", "tracker", "Tile tracker", -78.0), wifi("mid", "Somebody", -58.0),
     ))
-    private fun find(key: String) = HouseWalk.report(listOf(kitchen, bedroom)) { it.label == "guest" }.first { it.key == key }
+    private fun find(key: String) = HouseWalk.report(listOf(kitchen, bedroom), { it.key == "wifi:router" }).first { it.key == key }
 
     @Test fun neighborIsWeakEverywhere() = assertEquals(Verdict.OUTSIDE, find("wifi:hal").verdict)
     @Test fun strongHiddenSourceIsInsideAndEverywhere() { find("wifi:hidden").let { assertEquals(Verdict.INSIDE, it.verdict); assertNull(it.room) } }
     @Test fun ownNetworkIsMine() = assertEquals(Verdict.MINE, find("wifi:router").verdict)
     @Test fun trackerLoudInOneRoomIsInsideThere() { find("ble:tag").let { assertEquals(Verdict.INSIDE, it.verdict); assertEquals("Kitchen", it.room) } }
     @Test fun moderateSignalIsUnclear() = assertEquals(Verdict.UNCLEAR, find("wifi:mid").verdict)
+    @Test fun copiedNetworkNameIsNeverHidden() {
+        val s = RoomScan("A", 1, listOf(wifi("rogue", "guest", -45.0)))
+        val f = HouseWalk.report(listOf(s), { false }, { it.label == "guest" }).single()
+        assertEquals(Verdict.INSIDE, f.verdict); assertEquals(true, f.nameOnly)
+    }
     @Test fun unnamedBluetoothIsIgnored() {
         val s = RoomScan("A", 1, listOf(RoomItem("ble:x", "ble", "Bluetooth device", -40.0)))
-        assertEquals(0, HouseWalk.report(listOf(s)) { false }.size)
+        assertEquals(0, HouseWalk.report(listOf(s), { false }).size)
     }
 }

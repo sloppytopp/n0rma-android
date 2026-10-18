@@ -63,7 +63,7 @@ fun RoomsScreen() {
                 walkIdx++
                 if (walkIdx >= w.size) {
                     val latestNow = Store.latestScans()
-                    report = HouseWalk.report(w.mapNotNull { latestNow[it] }) { i -> i.label in Prefs.mySsids || Prefs.isMine(i.key) || Prefs.isMine(i.key.removePrefix("ble:")) }
+                    report = HouseWalk.report(w.mapNotNull { latestNow[it] }, { i -> Prefs.isMine(i.key) || Prefs.isMine(i.key.removePrefix("ble:")) }, { i -> i.kind == "wifi" && i.label in Prefs.mySsids })
                     walk = null
                 }
             }
@@ -195,7 +195,7 @@ private fun InspectionChecklist(room: String) {
 /** The end of a house walk, in plain words: what is probably inside the home, what is a neighbor's, what can't be told. */
 @Composable
 private fun HouseReport(all: List<WalkFinding>, onClose: () -> Unit) {
-    fun name(f: WalkFinding) = f.label.ifBlank { "Hidden network" }
+    fun name(f: WalkFinding) = f.label.ifBlank { "Hidden network" } + if (f.nameOnly) " (uses your network name - confirm it is your own router)" else ""
     val inside = all.filter { it.verdict == Verdict.INSIDE }
     val unclear = all.filter { it.verdict == Verdict.UNCLEAR }
     val outside = all.filter { it.verdict == Verdict.OUTSIDE }
@@ -203,7 +203,7 @@ private fun HouseReport(all: List<WalkFinding>, onClose: () -> Unit) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("House walk results", color = UiColors.text, fontSize = 20.sp)
         Text("Signal strength through walls is a strong hint, not proof.", color = UiColors.dim, fontSize = 12.sp)
-        if (mine > 0) Text("$mine of your own networks and devices were recognized.", color = UiColors.good, fontSize = 13.sp)
+        if (mine > 0) Text("$mine of your own devices were recognized (confirmed by address).", color = UiColors.good, fontSize = 13.sp)
         Text("Probably inside your home (${inside.size})", color = UiColors.watch, fontSize = 16.sp)
         if (inside.isEmpty()) Text("Nothing unknown is strong enough to be inside.", color = UiColors.dim, fontSize = 13.sp)
         inside.forEach { Text("• ${name(it)} - " + (it.room?.let { r -> "loudest in $r" } ?: "strong in every room") + " (${Math.round(it.maxRssi)} dBm). If it isn't yours, use Find it.", color = UiColors.text, fontSize = 13.sp) }
