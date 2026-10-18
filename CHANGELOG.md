@@ -1,5 +1,8 @@
 # Changelog
 ## 0.7.0
+- Home screen now has two live proximity radars (Bluetooth and Wi-Fi) with a plain-language card for each result. Each card has Find it, This is mine, Watch it (alerts when a pinned Wi-Fi device returns) and Details (raw MAC, maker, signal, channel, security). The Unresolved card opens the list of items to review, each with a one-line explanation. Distance is estimated from signal strength; a dot's angle carries no meaning.
+- "Walk the whole house" (Rooms tab): a guided, GPS-free walk room by room that reports what is probably inside the home, what is a neighbor's (weak in every room) and what is unclear. Outside networks can be labelled as neighbors'. A network that only copies one of your network names is never hidden as yours.
+- Lower idle battery: Bluetooth scans in balanced mode and switches to full power only while hunting, sweeping or inspecting; the ongoing notification updates only when its text changes.
 - RF mic sweep (SDR build): Burst scan finds carriers that come and go (seen in some passes but not most), and Watch logs one frequency's on/off pattern (duty cycle, burst and gap length, repeat period). Not yet tested with real hardware.
 - **New application ID `io.github.sloppytopp.n0rma`** (was `...homewatch`). This is a new app to Android: install it, then uninstall the old one; history is not carried over.
 - Rebaseline button on the home screen: once everything is checked and all clear, one tap (with a confirmation) locks the Wi-Fi networks, trackers and camera-like sources around you in as safe and clears the open items; from then on any new Wi-Fi network is flagged as a Suspect right away. Reset baseline undoes it.
