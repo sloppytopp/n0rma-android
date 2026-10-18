@@ -68,14 +68,15 @@ private fun items(s: Snapshot): List<Item> {
         val hidden = w.ssid.isBlank() || w.ssid == "(hidden)"
         val cam = w.klass == "camera" || w.klass == "drone"
         val vendor = io.github.sloppytopp.n0rma.detect.WifiClassifier.vendorOf(w.bssid)
+        // Naming only: addresses can be copied, so a maker match never lowers a flag or counts as proof it is yours.
+        val makerNote = vendor?.let { " Its address resembles ${it.name}${if (it.privateCopy) " (a private copy of it)" else ""}; addresses can be copied, so confirm it is your device." } ?: ""
         val (sentence, col, flag) = when {
             cam && m >= 25 -> Triple("Looks like a camera's Wi-Fi, but it's far away - most likely a neighbor's. Only a concern if it gets stronger.", UiColors.watch, false)
             cam -> Triple("Looks like a camera or drone link, ${band(m)}. Worth a look.", UiColors.alert, true)
             mine -> Triple("Your network.", UiColors.good, false)
             "wifi:" + w.bssid in Prefs.neighbors -> Triple("A neighbor's or far-away network. It was weak in every room of your house walk.", UiColors.neutral, false)
-            hidden && vendor != null -> Triple("A hidden network from a ${vendor.name} device, ${band(m)}. ${if (vendor.privateCopy) "It uses a private copy of ${vendor.name}'s address, which devices make for Wi-Fi Direct (remote controls, casting) or extra networks. " else ""}Most likely your own ${vendor.name} gear.", UiColors.neutral, false)
-            hidden && m < 8 -> Triple("A hidden network ${band(m)}. It doesn't broadcast a name, so check whether one of your devices makes it.", UiColors.watch, true)
-            hidden -> Triple("A hidden network, ${band(m)}.", UiColors.neutral, false)
+            hidden && m < 8 -> Triple("A hidden network ${band(m)}. It doesn't broadcast a name, so check whether one of your devices makes it.$makerNote", UiColors.watch, true)
+            hidden -> Triple("A hidden network, ${band(m)}.$makerNote", UiColors.neutral, false)
             else -> Triple("A Wi-Fi network, ${band(m)}.", UiColors.neutral, false)
         }
         out += Item("wifi:" + w.bssid, w.ssid.ifBlank { "(hidden)" }, sentence, m, col, flag, bt = false,
