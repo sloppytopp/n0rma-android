@@ -24,7 +24,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.sloppytopp.n0rma.data.Prefs
 import io.github.sloppytopp.n0rma.data.Store
+import io.github.sloppytopp.n0rma.detect.HouseWalk
 import io.github.sloppytopp.n0rma.detect.Inspection
+import io.github.sloppytopp.n0rma.detect.Verdict
+import io.github.sloppytopp.n0rma.detect.WalkFinding
 import io.github.sloppytopp.n0rma.detect.RoomBook
 import io.github.sloppytopp.n0rma.detect.SweepCollector
 import io.github.sloppytopp.n0rma.scan.Monitor
@@ -42,6 +45,9 @@ fun RoomsScreen() {
     var started by remember { mutableLongStateOf(0L) }
     var result by remember { mutableStateOf<String?>(null) }
     var newRoom by remember { mutableStateOf("") }
+    var walk by remember { mutableStateOf<List<String>?>(null) }
+    var walkIdx by remember { mutableIntStateOf(0) }
+    var report by remember { mutableStateOf<List<WalkFinding>?>(null) }
     val latest = remember(version) { Store.latestScans() }
 
     LaunchedEffect(sweeping) {
@@ -53,6 +59,14 @@ fun RoomsScreen() {
             val scan = c.result(room, System.currentTimeMillis())
             val prev = Store.previousScan(room)
             Store.addRoomScan(scan)
+            walk?.let { w ->
+                walkIdx++
+                if (walkIdx >= w.size) {
+                    val latestNow = Store.latestScans()
+                    report = HouseWalk.report(w.mapNotNull { latestNow[it] }) { i -> i.label in Prefs.mySsids || Prefs.isMine(i.key) || Prefs.isMine(i.key.removePrefix("ble:")) }
+                    walk = null
+                }
+            }
             val d = RoomBook.diff(prev, scan)
             result = buildString {
                 append("$room swept: ${scan.items.size} signals heard (${scan.items.count { it.kind == "wifi" }} Wi-Fi, ${scan.items.count { it.kind != "wifi" }} Bluetooth).\n")
@@ -79,6 +93,26 @@ fun RoomsScreen() {
         var lens by remember { mutableStateOf(false) }
         TextButton(onClick = { lens = true }) { Text("Open the lens finder (camera + torch)") }
         if (lens) LensFinder { lens = false }
+
+        val w = walk
+        if (w == null && sweeping == null) {
+            Button(
+                onClick = { report = null; result = null; walkIdx = 0; walk = Prefs.rooms.toList() },
+                enabled = s.running && Prefs.rooms.size >= 2,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = UiColors.good, contentColor = UiColors.onGood),
+            ) { Text("Walk the whole house") }
+            Text(if (Prefs.rooms.size < 2) "Add at least two rooms below first." else "Goes room by room (${Prefs.rooms.joinToString(", ")}). At the end it tells you what is probably inside your home and what is a neighbor's. No GPS needed.", color = UiColors.dim, fontSize = 12.sp)
+        } else if (w != null && sweeping == null) {
+            val room = w[walkIdx.coerceAtMost(w.size - 1)]
+            Text("Room ${walkIdx + 1} of ${w.size}: go to $room, hold the phone steady, then tap Ready.", color = UiColors.text, fontSize = 15.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { started = System.currentTimeMillis(); sweeping = room },
+                    colors = ButtonDefaults.buttonColors(containerColor = UiColors.good, contentColor = UiColors.onGood)) { Text("Ready - sweep $room") }
+                TextButton(onClick = { walk = null }) { Text("Cancel walk", color = UiColors.warn) }
+            }
+        }
+        report?.let { HouseReport(it) { report = null } }
 
         val sw = sweeping
         if (sw != null) {
@@ -154,5 +188,36 @@ private fun InspectionChecklist(room: String) {
         Text("If you find something you don't own: leave it where it is, photograph it, note the time, and talk to an advocate or the police before removing it. " +
             "A fully ticked list means you looked in these places, not that the room is clear: a phone can't see dormant, wired or cellular devices.", color = UiColors.faint, fontSize = 11.sp)
         if (n > 0) TextButton(onClick = { Prefs.resetInspection(room) }) { Text("Start this checklist over", color = UiColors.warn, fontSize = 12.sp) }
+    }
+}
+
+
+/** The end of a house walk, in plain words: what is probably inside the home, what is a neighbor's, what can't be told. */
+@Composable
+private fun HouseReport(all: List<WalkFinding>, onClose: () -> Unit) {
+    fun name(f: WalkFinding) = f.label.ifBlank { "Hidden network" }
+    val inside = all.filter { it.verdict == Verdict.INSIDE }
+    val unclear = all.filter { it.verdict == Verdict.UNCLEAR }
+    val outside = all.filter { it.verdict == Verdict.OUTSIDE }
+    val mine = all.count { it.verdict == Verdict.MINE }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("House walk results", color = UiColors.text, fontSize = 20.sp)
+        Text("Signal strength through walls is a strong hint, not proof.", color = UiColors.dim, fontSize = 12.sp)
+        if (mine > 0) Text("$mine of your own networks and devices were recognized.", color = UiColors.good, fontSize = 13.sp)
+        Text("Probably inside your home (${inside.size})", color = UiColors.watch, fontSize = 16.sp)
+        if (inside.isEmpty()) Text("Nothing unknown is strong enough to be inside.", color = UiColors.dim, fontSize = 13.sp)
+        inside.forEach { Text("• ${name(it)} - " + (it.room?.let { r -> "loudest in $r" } ?: "strong in every room") + " (${Math.round(it.maxRssi)} dBm). If it isn't yours, use Find it.", color = UiColors.text, fontSize = 13.sp) }
+        if (unclear.isNotEmpty()) {
+            Text("Not sure (${unclear.size})", color = UiColors.text, fontSize = 16.sp)
+            unclear.forEach { Text("• ${name(it)} - medium signal (${Math.round(it.maxRssi)} dBm at best). Could be next door or at the far end of the house.", color = UiColors.dim, fontSize = 13.sp) }
+        }
+        Text("Outside - weak in every room (${outside.size})", color = UiColors.good, fontSize = 16.sp)
+        outside.take(15).forEach { Text("• ${name(it)} - ${Math.round(it.maxRssi)} dBm at best. Most likely a neighbor's.", color = UiColors.dim, fontSize = 13.sp) }
+        if (outside.size > 15) Text("...and ${outside.size - 15} more.", color = UiColors.faint, fontSize = 12.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val out = outside.filter { it.kind == "wifi" }.map { it.key }
+            if (out.isNotEmpty()) TextButton(onClick = { Prefs.addNeighbors(out); onClose() }) { Text("Label the outside ones as neighbors'") }
+            TextButton(onClick = onClose) { Text("Close") }
+        }
     }
 }

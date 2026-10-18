@@ -71,6 +71,7 @@ private fun items(s: Snapshot): List<Item> {
             cam && m >= 25 -> Triple("Looks like a camera's Wi-Fi, but it's far away - most likely a neighbor's. Only a concern if it gets stronger.", UiColors.watch, false)
             cam -> Triple("Looks like a camera or drone link, ${band(m)}. Worth a look.", UiColors.alert, true)
             mine -> Triple("Your network.", UiColors.good, false)
+            "wifi:" + w.bssid in Prefs.neighbors -> Triple("A neighbor's or far-away network. It was weak in every room of your house walk.", UiColors.neutral, false)
             hidden && m < 8 -> Triple("A hidden network ${band(m)}. It doesn't broadcast a name, so check whether one of your devices makes it.", UiColors.watch, true)
             hidden -> Triple("A hidden network, ${band(m)}.", UiColors.neutral, false)
             else -> Triple("A Wi-Fi network, ${band(m)}.", UiColors.neutral, false)
