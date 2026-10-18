@@ -67,17 +67,19 @@ private fun items(s: Snapshot): List<Item> {
         val mine = w.ssid in Prefs.mySsids || Prefs.isMine("wifi:" + w.bssid)
         val hidden = w.ssid.isBlank() || w.ssid == "(hidden)"
         val cam = w.klass == "camera" || w.klass == "drone"
+        val vendor = io.github.sloppytopp.n0rma.detect.WifiClassifier.vendorOf(w.bssid)
         val (sentence, col, flag) = when {
             cam && m >= 25 -> Triple("Looks like a camera's Wi-Fi, but it's far away - most likely a neighbor's. Only a concern if it gets stronger.", UiColors.watch, false)
             cam -> Triple("Looks like a camera or drone link, ${band(m)}. Worth a look.", UiColors.alert, true)
             mine -> Triple("Your network.", UiColors.good, false)
             "wifi:" + w.bssid in Prefs.neighbors -> Triple("A neighbor's or far-away network. It was weak in every room of your house walk.", UiColors.neutral, false)
+            hidden && vendor != null -> Triple("A hidden network from a ${vendor.name} device, ${band(m)}. ${if (vendor.privateCopy) "It uses a private copy of ${vendor.name}'s address, which devices make for Wi-Fi Direct (remote controls, casting) or extra networks. " else ""}Most likely your own ${vendor.name} gear.", UiColors.neutral, false)
             hidden && m < 8 -> Triple("A hidden network ${band(m)}. It doesn't broadcast a name, so check whether one of your devices makes it.", UiColors.watch, true)
             hidden -> Triple("A hidden network, ${band(m)}.", UiColors.neutral, false)
             else -> Triple("A Wi-Fi network, ${band(m)}.", UiColors.neutral, false)
         }
         out += Item("wifi:" + w.bssid, w.ssid.ifBlank { "(hidden)" }, sentence, m, col, flag, bt = false,
-            detail = "MAC (BSSID): ${w.bssid}\nMaker: ${w.vendor.ifEmpty { "unknown (private address)" }}\nSignal: ${w.level} dBm (about ${"%.0f".format(m)} m)\nChannel frequency: ${w.freq} MHz\nSecurity: ${w.caps.ifEmpty { "unknown" }}",
+            detail = "MAC (BSSID): ${w.bssid}\nMaker: ${w.vendor.ifEmpty { "unknown (private address)" }}${if (vendor?.privateCopy == true) " (private copy of its address)" else ""}\nSignal: ${w.level} dBm (about ${"%.0f".format(m)} m)\nChannel frequency: ${w.freq} MHz\nSecurity: ${w.caps.ifEmpty { "unknown" }}",
             ssid = w.ssid)
     }
     for (t in s.trackers) {

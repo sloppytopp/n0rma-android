@@ -14,6 +14,7 @@ class N0rmaApp : Application() {
         runCatching { io.github.sloppytopp.n0rma.scan.Monitor.engine.loadKnownNets(Store.knownNets()) }
         io.github.sloppytopp.n0rma.scan.Monitor.engine.baselineLocked = Prefs.baselineAt > 0
         runCatching { assets.open("stalkerware_packages.csv").bufferedReader().useLines { io.github.sloppytopp.n0rma.detect.Stalkerware.loadCsv(it) } }
+        runCatching { assets.open("oui_known.csv").bufferedReader().useLines { WifiClassifier.loadKnown(it) } }
         runCatching { assets.open("oui_watch.csv").bufferedReader().useLines { WifiClassifier.loadCsv(it) } }
     }
 }

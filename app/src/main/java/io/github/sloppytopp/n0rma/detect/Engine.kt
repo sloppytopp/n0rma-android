@@ -170,7 +170,7 @@ class Engine(
         val cams = ArrayList<WifiHit>()
         for (o in obs) {
             val klass = WifiClassifier.klassOf(o)
-            val vendor = WifiClassifier.lookup(o.bssid)?.vendor ?: ""
+            val vendor = WifiClassifier.vendorOf(o.bssid)?.name ?: ""
             val row = WifiRow(o.ssid.ifEmpty { "(hidden)" }, o.bssid, o.level, vendor, klass, o.caps, o.freq)
             rows += row
             var ridFound = false

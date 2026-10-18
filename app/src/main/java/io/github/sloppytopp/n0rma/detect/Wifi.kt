@@ -4,6 +4,8 @@ package io.github.sloppytopp.n0rma.detect
 data class WifiObs(val bssid: String, val ssid: String, val level: Int, val ridData: List<ByteArray> = emptyList(), val caps: String = "", val freq: Int = 0)
 data class WifiRow(val ssid: String, val bssid: String, val level: Int, val vendor: String, val klass: String, val caps: String = "", val freq: Int = 0)
 data class OuiHit(val vendor: String, val klass: String)
+/** [privateCopy]: the address only matched after clearing the locally-administered bit (a device's own extra interface, e.g. Wi-Fi Direct or a guest SSID). */
+data class VendorInfo(val name: String, val privateCopy: Boolean)
 
 object WifiClassifier {
     val DRONE_SSID = Regex(
@@ -26,6 +28,27 @@ object WifiClassifier {
             if (p.size >= 3) m[p[0].uppercase()] = OuiHit(p[1].trim(), p[2].trim())
         }
         oui = m
+    }
+
+    /** AABBCC -> everyday-device maker (Roku, Amazon, Samsung, routers...), from assets/oui_known.csv (IEEE registry). Only used to name things, never to flag them. */
+    @Volatile var known: Map<String, String> = emptyMap()
+
+    fun loadKnown(lines: Sequence<String>) {
+        val m = HashMap<String, String>()
+        for (l in lines) { val p = l.split(","); if (p.size >= 2) m[p[0].uppercase()] = p[1].trim() }
+        known = m
+    }
+
+    /** Who makes this? Camera/drone makers first, then everyday devices. A private (locally administered) address is retried with the bit cleared. */
+    fun vendorOf(bssid: String): VendorInfo? {
+        val raw = bssid.uppercase().replace(":", "").replace("-", "")
+        if (raw.length < 6) return null
+        val head = raw.substring(0, 6)
+        (oui[head]?.vendor ?: known[head])?.let { return VendorInfo(it, false) }
+        val first = raw.substring(0, 2).toIntOrNull(16) ?: return null
+        if (first and 0x02 == 0) return null
+        val cleared = "%02X%s".format(first and 0x02.inv(), raw.substring(2, 6))
+        return (oui[cleared]?.vendor ?: known[cleared])?.let { VendorInfo(it, true) }
     }
 
     /** BSSIDs of routers/APs often set the locally-administered bit for virtual APs: retry with it cleared. */
