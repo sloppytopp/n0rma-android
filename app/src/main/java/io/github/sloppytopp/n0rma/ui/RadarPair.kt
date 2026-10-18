@@ -124,7 +124,7 @@ private fun Scope(title: String, list: List<Item>, modifier: Modifier) {
 }
 
 @Composable
-fun RadarPair(s: Snapshot) {
+fun RadarPair(s: Snapshot, maxCards: Int = 10) {
     val hist = remember { mutableStateMapOf<String, List<Int>>() }
     LaunchedEffect(Unit) {
         while (true) {
@@ -152,7 +152,7 @@ fun RadarPair(s: Snapshot) {
             if (check == 0) "Nothing needs your attention." else "$check to check",
             color = if (check == 0) UiColors.good else UiColors.watch, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
         )
-        all.sortedWith(compareByDescending<Item> { it.flagged }.thenBy { it.meters }).take(10).forEach { it ->
+        all.sortedWith(compareByDescending<Item> { it.flagged }.thenBy { it.meters }).take(maxCards).forEach { it ->
             val h = hist[it.key] ?: emptyList()
             val trend = if (h.size >= 3) (h.last() - h.first()).let { d -> if (d >= 6) "▲ getting closer" else if (d <= -6) "▼ moving away" else "● steady" } else ""
             Column(Modifier.fillMaxWidth().background(UiColors.card, RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {

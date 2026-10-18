@@ -260,6 +260,7 @@ private fun StatusScreen() {
     if (!s.running && !Demo.active) TextButton(onClick = { Demo.start() }) { Text("Try it with sample data (nothing real is scanned)") }
 
     LiveBanner(s)
+    io.github.sloppytopp.n0rma.ui.RadarPair(s)
 
     if (sweepStart > 0) {
         val frac = ((now - sweepStart) / 30_000f).coerceIn(0f, 1f)

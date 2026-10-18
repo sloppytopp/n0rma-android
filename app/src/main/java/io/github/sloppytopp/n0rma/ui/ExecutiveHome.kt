@@ -63,6 +63,8 @@ fun ExecutiveHome(s: Snapshot, onToggleScan: () -> Unit, goTab: (Int) -> Unit) {
         ) { Text(if (io.github.sloppytopp.n0rma.scan.Demo.active) "Stop sample data" else if (s.running) "Stop" else "Scan", fontSize = 16.sp, fontWeight = FontWeight.Medium) }
         s.error?.let { Text(it, color = UiColors.warn, fontSize = 14.sp) }
 
+        RadarPair(s, maxCards = 3)
+
         Rule()
         Text("Needs a decision", color = UiColors.faint, fontSize = 12.sp, letterSpacing = 1.sp)
         val fmt = SimpleDateFormat("EEE h:mm a", Locale.getDefault())
