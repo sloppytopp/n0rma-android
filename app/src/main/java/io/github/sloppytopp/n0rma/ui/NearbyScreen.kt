@@ -46,73 +46,39 @@ import io.github.sloppytopp.n0rma.scan.Monitor
 import kotlinx.coroutines.delay
 
 @Composable
-private fun Chip(text: String, color: androidx.compose.ui.graphics.Color) =
-    Text(" $text ", color = color, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-
-@Composable
-private fun DeviceRow(bars: String, title: String, sub: String, rssi: Int, chip: String? = null, chipColor: androidx.compose.ui.graphics.Color = UiColors.dim, onClick: (() -> Unit)? = null) {
-    Row(
-        Modifier.fillMaxWidth().let { if (onClick != null) it.clickable { onClick() } else it }.padding(vertical = 5.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(bars, color = UiColors.good, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp))
-        Column(Modifier.weight(1f)) {
-            Row { Text(title, color = UiColors.text, fontSize = 14.sp); if (chip != null) Chip(chip, chipColor) }
-            Text(sub, color = UiColors.dim, fontSize = 11.sp)
-        }
-        Text("$rssi dBm", color = UiColors.dim, fontSize = 11.sp)
-    }
-}
-
-@Composable
 fun NearbyScreen() {
     val ctx = LocalContext.current
     val s = Monitor.snapshot
     val now = rememberNow()
     var finding by remember { mutableStateOf<Pair<String, String>?>(null) }
     var wifiDetail by remember { mutableStateOf<io.github.sloppytopp.n0rma.detect.WifiRow?>(null) }
+    val wifiArrivals = remember { ArrivalTracker() }
+    val bleArrivals = remember { ArrivalTracker() }
+    // Wi-Fi is baselined once its first scan lands; trackers and drones once Bluetooth scanning is running. After that, anything that turns up is called out.
+    wifiArrivals.update(s.wifi.map { it.bssid }, now, ready = s.wifiAt > 0)
+    bleArrivals.update(s.trackers.map { it.addr } + s.drones.filter { it.via == "Bluetooth" }.map { it.addr }, now, ready = s.running)
     DisposableEffect(Unit) { onDispose { Monitor.setInspect(ctx, false) } } // unfiltered scan only while this screen is open
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("What's around you", color = UiColors.text, fontSize = 20.sp)
         if (!s.running) Text("Start scanning on the Status tab to fill these lists.", color = UiColors.warn, fontSize = 13.sp)
 
-        Text("Wi-Fi networks (${s.wifi.size})" + if (s.wifiAt > 0) " - scanned ${ago(now - s.wifiAt)} ago" else "", color = UiColors.text, fontSize = 15.sp)
-        Text("Tap a network for details: mark it as yours, or look it up on WiGLE. Android only allows a Wi-Fi scan every ~30 s.", color = UiColors.faint, fontSize = 11.sp)
-        if (s.wifi.isEmpty()) Text(s.camera.message.takeIf { s.camera.level == io.github.sloppytopp.n0rma.detect.Level.OFF } ?: "No networks yet...", color = UiColors.dim, fontSize = 12.sp)
-        s.wifi.forEach { w ->
-            val mine = w.ssid in Prefs.mySsids
-            DeviceRow(
-                signalBars(w.level), w.ssid, "${w.bssid}${if (w.vendor.isNotEmpty()) " · ${w.vendor}" else ""}", w.level,
-                chip = when { mine -> "YOURS"; w.klass == "camera" -> "CAMERA-LIKE"; w.klass == "drone" -> "DRONE-LIKE"; else -> null },
-                chipColor = if (mine) UiColors.good else UiColors.alert,
-                onClick = { wifiDetail = w },
-            )
+        if (s.wifi.isEmpty() && s.camera.level == io.github.sloppytopp.n0rma.detect.Level.OFF) Text(s.camera.message, color = UiColors.dim, fontSize = 12.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.weight(1f)) { WifiRadar(s, now, wifiArrivals) { wifiDetail = it } }
+            Column(Modifier.weight(1f)) { BluetoothRadar(s, now, bleArrivals, Monitor.inspecting, s.running, { Monitor.setInspect(ctx, it) }) { addr, label -> finding = addr to label } }
         }
-
-        Text("Bluetooth", color = UiColors.text, fontSize = 15.sp, modifier = Modifier.padding(top = 10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Show every Bluetooth device (phones, watches, gadgets)", color = UiColors.dim, fontSize = 12.sp, modifier = Modifier.weight(1f).padding(end = 8.dp))
-            Switch(checked = Monitor.inspecting, onCheckedChange = { Monitor.setInspect(ctx, it) }, enabled = s.running)
-        }
-        Text("Tap any Bluetooth device to hunt for it with the hot/cold finder. Phones and watches change their address every few minutes, so one device can appear more than once.",
+        Text("Dots are placed by Wi-Fi band and channel, or by Bluetooth type - not by direction, because a phone radio cannot tell which way a signal comes from. " +
+            "Distance is estimated from signal strength (rings at about 5 m and 20 m). The beam lights each dot as it passes, and a ring ripples out whenever fresh scan data arrives.",
             color = UiColors.faint, fontSize = 11.sp)
-        s.drones.filter { it.via == "Bluetooth" }.forEach { d ->
-            DeviceRow(signalBars(d.rssi), "DRONE (claims Remote ID)", "${d.info.basicId ?: d.addr}", d.rssi, "DRONE", UiColors.alert) { finding = d.addr to "Drone broadcast" }
+        Text("A ring around a dot and a NEW label mean it appeared after you opened this screen (Wi-Fi networks, trackers and drones).", color = UiColors.faint, fontSize = 11.sp)
+        Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            SpectrumStrip(s)
+            BleWaterfall(s, Monitor.inspecting)
+            SweepPanel(s, enabled = s.running)
         }
-        s.trackers.forEach { t ->
-            DeviceRow(signalBars(t.rssi), t.label, "${t.addr} · seen ${ago(t.seenS * 1000)}", t.rssi, if (t.mine) "YOURS" else "TRACKER", if (t.mine) UiColors.good else UiColors.watch) { finding = t.addr to t.label }
-        }
-        if (Monitor.inspecting) {
-            val known = s.trackers.map { it.addr }.toSet()
-            val rows = s.inspect.filter { it.addr !in known }
-            Text("${rows.size} other Bluetooth devices heard in the last minute", color = UiColors.dim, fontSize = 12.sp)
-            rows.take(60).forEach { r ->
-                DeviceRow(signalBars(r.rssi), r.name.ifEmpty { "(no name)" }, "${r.addr}${if (r.company.isNotEmpty()) " · ${r.company}" else ""}", r.rssi, onClick = { finding = r.addr to r.name.ifEmpty { r.company.ifEmpty { "Bluetooth device" } } })
-            }
-        } else if (s.trackers.isEmpty() && s.drones.none { it.via == "Bluetooth" }) {
-            Text("No trackers or drones in range. Turn on \"Show every Bluetooth device\" to see all of them.", color = UiColors.dim, fontSize = 12.sp)
-        }
+        Text("Tap a dot or a row to hunt for it with the hot/cold finder. Wi-Fi: Android only allows a scan every ~30 s. Bluetooth: phones and watches change their address every few minutes, so one device can appear more than once.",
+            color = UiColors.faint, fontSize = 11.sp)
     }
 
     finding?.let { (addr, label) -> Finder(addr, label) { finding = null } }
@@ -156,6 +122,7 @@ internal fun Finder(addr: String, label: String, onClose: () -> Unit) {
     val graph = remember { androidx.compose.runtime.mutableStateListOf<Int>() }   // longer memory for the live graph
     var best by remember { mutableStateOf<Int?>(null) }
     var buzz by remember { mutableStateOf(false) }
+    var beep by remember { mutableStateOf(false) }
     var sweeping by remember { mutableStateOf(false) }
     var sweepAt by remember { mutableLongStateOf(0L) }
     val finder = remember { DirectionFinder() }
@@ -213,6 +180,18 @@ internal fun Finder(addr: String, label: String, onClose: () -> Unit) {
             delay(gap ?: 500L)
         }
     }
+    // soft beeps that speed up as it gets closer; off by default and never offered in Discreet mode
+    LaunchedEffect(beep) {
+        if (!beep) return@LaunchedEffect
+        val tone = try { android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 40) } catch (_: RuntimeException) { null }
+        try {
+            while (true) {
+                val gap = history.lastOrNull()?.let { FindAid.pulseGapMs(it) }
+                if (gap != null) tone?.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 60)
+                delay(gap ?: 500L)
+            }
+        } finally { tone?.release() }
+    }
     AlertDialog(
         containerColor = UiColors.dialogBg, titleContentColor = UiColors.text, textContentColor = UiColors.text,
         onDismissRequest = onClose,
@@ -225,6 +204,7 @@ internal fun Finder(addr: String, label: String, onClose: () -> Unit) {
                     best?.let { b -> rssi?.let { Text("Best so far: $b dBm. " + FindAid.versusBest(it, b), fontSize = 12.sp) } }
                 }
                 TextButton(onClick = { buzz = !buzz }) { Text(if (buzz) "Vibration guide ON - tap to turn off" else "Vibrate faster as I get closer") }
+                if (!Prefs.discreet) TextButton(onClick = { beep = !beep }) { Text(if (beep) "Beep guide ON - tap to turn off" else "Beep faster as I get closer") }
                 if (rssi == null) Text("Not heard right now. Wait a few seconds, or move closer.")
                 else {
                     Meter(((rssi + 100) / 60f), "$rssi dBm - " + when { rssi >= -50 -> "very hot: it's right here"; rssi >= -62 -> "hot"; rssi >= -75 -> "warm"; else -> "cold" } +

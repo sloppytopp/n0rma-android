@@ -39,10 +39,12 @@ object Demo {
     private fun feed() {
         val e = Monitor.engine
         if (n++ % 3 == 0) e.onWifiScan(listOf(
-            WifiObs("aa:bb:cc:00:00:01", "SampleHome", -49),
-            WifiObs("aa:bb:cc:00:00:02", "Neighbor-WiFi", -72),
-            WifiObs("aa:bb:cc:00:00:03", "CoffeeShop", -81),
-            WifiObs("02:11:22:33:44:55", "HDWifiCam_8F2A", -66),   // camera-like name
+            WifiObs("aa:bb:cc:00:00:01", "SampleHome", -49, freq = 5180),
+            WifiObs("aa:bb:cc:00:00:02", "Neighbor-WiFi", -72, freq = 2437),
+            WifiObs("aa:bb:cc:00:00:03", "CoffeeShop", -81, freq = 2462),
+            WifiObs("aa:bb:cc:00:00:04", "Neighbor-5G", -77, freq = 5745),
+            WifiObs("aa:bb:cc:00:00:05", "Hall-6E", -84, freq = 6055),
+            WifiObs("02:11:22:33:44:55", "HDWifiCam_8F2A", -66, freq = 2412),   // camera-like name
         ))
         e.onAdvertisement("00:00:00:00:00:01", -63, Classification(Kind.TRACKER, "Tile tracker"))
         e.onInspect("11:22:33:00:00:01", "Fitness band", -62, 0x0157)

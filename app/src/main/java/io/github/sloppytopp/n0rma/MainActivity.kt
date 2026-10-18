@@ -87,19 +87,12 @@ import io.github.sloppytopp.n0rma.ui.ExecutiveHome
 import io.github.sloppytopp.n0rma.data.AppTheme
 import io.github.sloppytopp.n0rma.ui.SurveyCard
 import io.github.sloppytopp.n0rma.ui.StatusTile
+import io.github.sloppytopp.n0rma.ui.SweepPanel
 import io.github.sloppytopp.n0rma.ui.UiColors
 import io.github.sloppytopp.n0rma.detect.Snapshot
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-private fun sweepSummary(s: Snapshot): String {
-    val f = SimpleDateFormat("h:mm a", Locale.US)
-    val flagged = listOf(s.drone, s.tracker, s.camera).count { it.level == io.github.sloppytopp.n0rma.detect.Level.WATCH || it.level == io.github.sloppytopp.n0rma.detect.Level.ALERT }
-    val cams = s.wifi.count { it.klass == "camera" || it.klass == "drone" }
-    return "Sweep finished at ${f.format(Date())}: ${s.wifi.size} Wi-Fi networks ($cams suspicious), ${s.trackers.size} tracker signals, ${s.drones.size} drone claims. " +
-        if (flagged == 0) "Nothing unusual." else "$flagged item(s) flagged - see the tiles."
-}
 
 private fun lv(l: io.github.sloppytopp.n0rma.detect.Level) = Level.valueOf(l.name)
 
@@ -227,12 +220,6 @@ private fun StatusScreen() {
         if (missing.isEmpty()) startScan() else explain = true
     }
 
-    val now = rememberNow()
-    var sweepStart by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(sweepStart) {
-        if (sweepStart > 0) { delay(30_000); Monitor.lastSweep = sweepSummary(Monitor.snapshot); sweepStart = 0 }
-    }
-
     val toggleScan: () -> Unit = { if (Demo.active) Demo.stop() else if (s.running) ctx.startService(Intent(ctx, ScanService::class.java).setAction(ScanService.ACTION_STOP)) else onStartTapped() }
     if (Prefs.theme == AppTheme.EXECUTIVE) ExecutiveHome(s, onToggleScan = toggleScan, goTab = { Monitor.requestTab = it })
     else if (!Prefs.hacker) CalmHome(s, onToggleScan = toggleScan, goTab = { Monitor.requestTab = it })
@@ -260,17 +247,7 @@ private fun StatusScreen() {
 
     LiveBanner(s)
 
-    if (sweepStart > 0) {
-        val frac = ((now - sweepStart) / 30_000f).coerceIn(0f, 1f)
-        Meter(frac, "Sweeping... ${(30 - (now - sweepStart) / 1000).coerceAtLeast(0)} s left - hold still, let it listen")
-    } else {
-        Button(
-            onClick = { if (!s.running) onStartTapped(); sweepStart = System.currentTimeMillis() },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF111111), contentColor = UiColors.buttonFg),
-        ) { Text("Sweep now (30 seconds)") }
-    }
-    Monitor.lastSweep?.let { Text(it, color = UiColors.text, fontSize = 13.sp) }
+    SweepPanel(s) { if (!s.running) onStartTapped() }
 
     s.error?.let { Text("⚠ $it", color = UiColors.warn, fontSize = 13.sp) }
     if (locOff) {
