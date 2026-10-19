@@ -68,4 +68,18 @@ class PresenceTest {
         assertEquals(990L, src.totalMs)                                                                         // first run ends at its last log (100), second is 5010..6000
         assertEquals(100L + 1000L, PresenceSummary.scanningMs(ev, 6000, 10_000, true))                          // 0..100 then 5000..6000
     }
+
+    @Test fun aHiddenSourceThatLaterShowsItsNameKeepsTheName() {
+        val t = PresenceTracker()
+        val b = "d6:e2:2f:b6:20:10"
+        val ev = ArrayList<PresenceEvent>()
+        ev += t.onScan(0, listOf(hidden(b)))
+        ev += t.onScan(30 * s, listOf(WifiRow("DIRECT-roku-XMX-0F651C", b, -57, "", "other")))
+        ev += t.onScan(60 * s, listOf(WifiRow("DIRECT-roku-XMX-0F651C", b, -57, "", "other")))   // same name again: no new event
+        ev += t.onScan(90 * s, listOf(hidden(b)))                                                  // hides again: keeps the name
+        assertEquals(listOf("seen", "name"), ev.map { it.kind })
+        val src = PresenceSummary.build(ev, 100 * s, 3_600_000, true).single()
+        assertEquals("DIRECT-roku-XMX-0F651C", src.label)
+        assertTrue(src.hidden)
+    }
 }

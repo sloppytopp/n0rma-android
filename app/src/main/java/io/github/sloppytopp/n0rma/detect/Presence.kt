@@ -2,7 +2,7 @@ package io.github.sloppytopp.n0rma.detect
 
 /** One appear/disappear mark for a logged Wi-Fi source, or a marker for when scanning started or stopped (key "*"). */
 data class PresenceEvent(val ts: Long, val key: String, val label: String, val kind: String, val rssi: Int, val freq: Int) {
-    companion object { const val SEEN = "seen"; const val GONE = "gone"; const val START = "start"; const val STOP = "stop" }
+    companion object { const val SEEN = "seen"; const val NAME = "name"; const val GONE = "gone"; const val START = "start"; const val STOP = "stop" }
 }
 
 fun locallyAdministered(bssid: String): Boolean = bssid.take(2).toIntOrNull(16)?.let { it and 2 != 0 } ?: false
@@ -12,7 +12,7 @@ fun isLogged(w: WifiRow): Boolean = w.ssid.isBlank() || w.ssid == "(hidden)" || 
 
 /** Turns a stream of Wi-Fi scans into appear/disappear events. A source is gone once it has missed scans for [goneAfterMs]. */
 class PresenceTracker(private val goneAfterMs: Long = 150_000L) {
-    private class Live(var last: Long, var rssi: Int, val label: String, var freq: Int)
+    private class Live(var last: Long, var rssi: Int, var label: String, var freq: Int)
     private val live = HashMap<String, Live>()
 
     fun onScan(now: Long, rows: List<WifiRow>): List<PresenceEvent> {
@@ -27,7 +27,14 @@ class PresenceTracker(private val goneAfterMs: Long = 150_000L) {
                 val label = w.ssid.ifBlank { "(hidden)" }
                 live[k] = Live(now, w.level, label, w.freq)
                 out += PresenceEvent(now, k, label, PresenceEvent.SEEN, w.level, w.freq)
-            } else { l.last = now; l.rssi = w.level; l.freq = w.freq }
+            } else {
+                l.last = now; l.rssi = w.level; l.freq = w.freq
+                // a source that hid its name now shows one (or changed it): keep the name, it says what the thing is
+                if (w.ssid.isNotBlank() && w.ssid != "(hidden)" && w.ssid != l.label) {
+                    l.label = w.ssid
+                    out += PresenceEvent(now, k, w.ssid, PresenceEvent.NAME, w.level, w.freq)
+                }
+            }
         }
         val it = live.iterator()
         while (it.hasNext()) {
@@ -54,6 +61,7 @@ object PresenceSummary {
         val endOpen = if (scanningNow) now else (sorted.lastOrNull()?.ts ?: now)
         val open = HashMap<String, Long>()
         val labels = HashMap<String, String>()
+        val everHidden = HashSet<String>()
         val ivs = HashMap<String, MutableList<LongRange>>()
         fun close(k: String, end: Long) {
             val s = open.remove(k) ?: return
@@ -63,7 +71,12 @@ object PresenceSummary {
         var lastTs = 0L
         for (e in sorted) {
             when (e.kind) {
-                PresenceEvent.SEEN -> { if (e.key !in open) open[e.key] = e.ts; labels[e.key] = e.label }
+                PresenceEvent.SEEN -> {
+                    if (e.key !in open) open[e.key] = e.ts
+                    labels[e.key] = e.label
+                    if (e.label == "(hidden)") everHidden += e.key
+                }
+                PresenceEvent.NAME -> labels[e.key] = e.label
                 PresenceEvent.GONE -> close(e.key, e.ts)
                 PresenceEvent.STOP -> open.keys.toList().forEach { close(it, e.ts) }
                 // a START while sources are still open means the previous run died without saying so (app killed or reinstalled):
@@ -73,7 +86,7 @@ object PresenceSummary {
             lastTs = e.ts
         }
         open.keys.toList().forEach { close(it, endOpen) }
-        return ivs.map { (k, l) -> PresenceSource(k, labels[k] ?: k, l, hidden = labels[k] == "(hidden)") }
+        return ivs.map { (k, l) -> PresenceSource(k, labels[k] ?: k, l, hidden = k in everHidden) }
     }
 
     /** How long N0RMA was actually scanning inside the window, so a quiet log isn't mistaken for a quiet house. */

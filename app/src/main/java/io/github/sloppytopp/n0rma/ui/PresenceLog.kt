@@ -62,7 +62,7 @@ fun PresenceLog() {
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 val maker = io.github.sloppytopp.n0rma.detect.WifiClassifier.vendorOf(src.key.removePrefix("wifi:"))
-                Text(src.label + (if (src.hidden && src.label != "(hidden)") "  (hidden name)" else "") + (maker?.let { "  ·  ${it.name}" + if (it.privateCopy) " (private address)" else "" } ?: ""), color = UiColors.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(src.label + (if (src.hidden && src.label != "(hidden)") "  (hides its name at times)" else "") + (maker?.let { "  ·  ${it.name}" + if (it.privateCopy) " (private address)" else "" } ?: ""), color = UiColors.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Text("${src.key.removePrefix("wifi:")}  ·  ${src.appearances} ${if (src.appearances == 1) "appearance" else "appearances"}  ·  here ${dur(src.totalMs)}  ·  last seen ${dur(now - src.lastSeen)} ago",
                     color = UiColors.dim, fontSize = 11.sp)
                 val bar = UiColors.good; val track = UiColors.ring
