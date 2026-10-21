@@ -150,4 +150,12 @@ class OwnNameCopyTest {
         assertEquals(1, ev.size)
         assertEquals(io.github.sloppytopp.n0rma.detect.Level.OK, ev[0].level)
     }
+
+    @Test fun unconfirmedNameStillWatchesAnAddressTheBaselineNeverSaw() {
+        val e = eng()
+        e.loadKnownNets(setOf("10:5a:95:39:ef:8a"))
+        e.ownSsids = setOf("MyHome")                            // saved before addresses were recorded
+        e.onWifiScan(listOf(obs("10:5a:95:39:ef:8a", "MyHome", -40), obs("0a:ee:00:00:00:99", "MyHome", -70)))
+        assertTrue(e.snapshot().events.any { it.level == io.github.sloppytopp.n0rma.detect.Level.WATCH && it.msg.contains("0a:ee:00:00:00:99") })
+    }
 }

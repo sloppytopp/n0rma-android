@@ -175,11 +175,17 @@ class Engine(
             val confirmed = ownNets[name].orEmpty()
             val strange = rs.filter { it.bssid.lowercase() !in confirmed }
             if (strange.isEmpty()) continue
-            val r = strange.maxByOrNull { it.level }!!
-            if (confirmed.isEmpty())
-                emit("network", Level.OK, "twin-unconfirmed:$name", "A network is using the name of YOUR network '$name' (${r.bssid}, ${r.level} dBm) but you have not confirmed which address is yours: open Nearby and tap your own to confirm it", 86_400_000, wifiAt)
-            else
+            // Nothing confirmed yet: an address already in the baseline is most likely the user's own router (quiet reminder); an address the baseline
+            // has never seen using the name is the evil-twin case and stays a WATCH. (Before the first baseline exists everything is "new", so stay quiet.)
+            val baselineKnown = knownNets.isNotEmpty() || baselineLocked
+            val fresh = if (confirmed.isEmpty() && baselineKnown) strange.filter { it.bssid !in knownNets } else if (confirmed.isEmpty()) emptyList() else strange
+            if (fresh.isNotEmpty()) {
+                val r = fresh.maxByOrNull { it.level }!!
                 emit("network", Level.WATCH, "twin:$name", "A network is using the name of YOUR network '$name' from an address you never confirmed (${r.bssid}, ${r.level} dBm): possible copy / evil twin", 600_000, wifiAt)
+            } else if (confirmed.isEmpty()) {
+                val r = strange.maxByOrNull { it.level }!!
+                emit("network", Level.OK, "twin-unconfirmed:$name", "A network is using the name of YOUR network '$name' (${r.bssid}, ${r.level} dBm) but you have not confirmed which address is yours: open Nearby and tap your own to confirm it", 86_400_000, wifiAt)
+            }
         }
     }
 
