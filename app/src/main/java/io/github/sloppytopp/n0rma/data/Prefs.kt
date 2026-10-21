@@ -33,6 +33,10 @@ object Prefs {
     /** What the UI should treat as home: a fictional spot in sample-data mode, otherwise the user's saved home. */
     val displayHome: Home? get() = if (io.github.sloppytopp.n0rma.scan.Demo.active) io.github.sloppytopp.n0rma.scan.Demo.FAKE_HOME else home
     var mySsids by mutableStateOf<Set<String>>(emptySet()); private set
+    /** The exact access points the user confirmed as their own, as "bssid|ssid". The name alone is spoofable; the address is what counts. */
+    var myNets by mutableStateOf<Set<String>>(emptySet()); private set
+    fun isMyNet(bssid: String, ssid: String) = "${bssid.lowercase()}|$ssid" in myNets
+    fun myNetsBySsid(): Map<String, Set<String>> = myNets.groupBy({ it.substringAfter('|') }, { it.substringBefore('|') }).mapValues { it.value.toSet() }
     var welcomed by mutableStateOf(false); private set
     var myDevices by mutableStateOf<Set<String>>(emptySet()); private set
     /** Networks ("wifi:<bssid>") a house walk found weak in every room: a neighbor's or far away. */
@@ -66,6 +70,7 @@ object Prefs {
         micBaseline = sp.getString("mic_baseline", null)
         launcher = sp.getInt("launcher", 0)
         mySsids = sp.getStringSet("my_ssids", emptySet()) ?: emptySet()
+        myNets = sp.getStringSet("my_nets", emptySet()) ?: emptySet()
         inspected = sp.all.filterKeys { it.startsWith("insp_") }.mapKeys { it.key.removePrefix("insp_") }
             .mapValues { (it.value as? Set<*>)?.filterIsInstance<String>()?.toSet() ?: emptySet() }
     }
@@ -104,7 +109,15 @@ object Prefs {
         if (ssid.isBlank() || ssid == "<unknown ssid>" || ssid in mySsids) return
         mySsids = mySsids + ssid; sp.edit().putStringSet("my_ssids", mySsids).apply()
     }
-    fun forgetSsid(ssid: String) { mySsids = mySsids - ssid; sp.edit().putStringSet("my_ssids", mySsids).apply() }
+    /** Confirm these exact access points (and so their name) as the user's own. */
+    fun learnNets(ssid: String, bssids: Collection<String>) {
+        learnSsid(ssid)
+        myNets = myNets + bssids.map { "${it.lowercase()}|$ssid" }; sp.edit().putStringSet("my_nets", myNets).apply()
+    }
+    fun forgetSsid(ssid: String) {
+        mySsids = mySsids - ssid; myNets = myNets.filterNot { it.substringAfter('|') == ssid }.toSet()
+        sp.edit().putStringSet("my_ssids", mySsids).putStringSet("my_nets", myNets).apply()
+    }
 
     fun addRoom(name: String) { val n = name.trim().take(24).replace("|", ""); if (n.isNotEmpty() && n !in rooms) { rooms = rooms + n; sp.edit().putString("rooms", rooms.joinToString("|")).apply() } }
     fun removeRoom(name: String) { resetInspection(name); rooms = rooms - name; sp.edit().putString("rooms", rooms.joinToString("|")).apply() }

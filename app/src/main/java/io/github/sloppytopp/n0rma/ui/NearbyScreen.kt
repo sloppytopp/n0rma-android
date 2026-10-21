@@ -81,11 +81,12 @@ fun NearbyScreen() {
         Text("Tap a network for details: mark it as yours, or look it up on WiGLE. Android only allows a Wi-Fi scan every ~30 s.", color = UiColors.faint, fontSize = 11.sp)
         if (s.wifi.isEmpty()) Text(s.camera.message.takeIf { s.camera.level == io.github.sloppytopp.n0rma.detect.Level.OFF } ?: "No networks yet...", color = UiColors.dim, fontSize = 12.sp)
         s.wifi.forEach { w ->
-            val mine = w.ssid in Prefs.mySsids
+            val mine = Prefs.isMyNet(w.bssid, w.ssid)
+            val sameName = !mine && w.ssid in Prefs.mySsids
             DeviceRow(
                 signalBars(w.level), w.ssid, "${w.bssid}${if (w.vendor.isNotEmpty()) " · ${w.vendor}" else ""}", w.level,
-                chip = when { mine -> "YOURS"; w.klass == "camera" -> "CAMERA-LIKE"; w.klass == "drone" -> "DRONE-LIKE"; else -> null },
-                chipColor = if (mine) UiColors.good else UiColors.alert,
+                chip = when { mine -> "YOURS"; sameName -> "SAME NAME - NOT CONFIRMED"; w.klass == "camera" -> "CAMERA-LIKE"; w.klass == "drone" -> "DRONE-LIKE"; else -> null },
+                chipColor = if (mine) UiColors.good else if (sameName) UiColors.watch else UiColors.alert,
                 onClick = { wifiDetail = w },
             )
         }
@@ -117,7 +118,8 @@ fun NearbyScreen() {
 
     finding?.let { (addr, label) -> Finder(addr, label) { finding = null } }
     wifiDetail?.let { w ->
-        val mine = w.ssid in Prefs.mySsids
+        val mine = Prefs.isMyNet(w.bssid, w.ssid)
+        val sameName = s.wifi.filter { it.ssid == w.ssid && it.ssid.isNotBlank() }
         AlertDialog(
             containerColor = UiColors.dialogBg, titleContentColor = UiColors.text, textContentColor = UiColors.text,
             onDismissRequest = { wifiDetail = null }, title = { Text(w.ssid) },
@@ -128,9 +130,13 @@ fun NearbyScreen() {
                     Text("Where is it? Two in-house ways to find out, using only this phone's own radio - no account, nothing sent anywhere:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     TextButton(onClick = { wifiDetail = null; finding = "wifi:${w.bssid}" to w.ssid }) { Text("Find it now (hot/cold, right here)") }
                     TextButton(onClick = { Monitor.requestTab = 3; wifiDetail = null }) { Text("Walk a Survey -> real position + Google Earth pin") }
-                    TextButton(onClick = { if (mine) Prefs.forgetSsid(w.ssid) else Prefs.learnSsid(w.ssid); wifiDetail = null }) {
-                        Text(if (mine) "Not mine - stop showing it as yours" else "This is my network")
+                    TextButton(onClick = { if (mine) Prefs.forgetSsid(w.ssid) else Prefs.learnNets(w.ssid, listOf(w.bssid)); Monitor.refresh(); wifiDetail = null }) {
+                        Text(if (mine) "Not mine - stop showing it as yours" else "This one is my network (this exact address)")
                     }
+                    if (!mine && sameName.size > 1) TextButton(onClick = { Prefs.learnNets(w.ssid, sameName.map { it.bssid }); Monitor.refresh(); wifiDetail = null }) {
+                        Text("All ${sameName.size} with this name are mine (other bands / guest)")
+                    }
+                    if (!mine) Text("Anyone can broadcast your network's name. N0RMA only trusts the exact address you confirm, and warns about any other one using the name.", fontSize = 11.sp, color = UiColors.faint)
                     Text("Advanced: WiGLE is a public database of networks other people have logged. A network WiGLE has never seen near you is worth a closer look - but it needs a free WiGLE account, and you " +
                         "have to paste the MAC into its search box yourself (WiGLE doesn't support filling it in for us). Only worth it once the two options above haven't settled it.", fontSize = 11.sp, color = UiColors.faint)
                     TextButton(onClick = {

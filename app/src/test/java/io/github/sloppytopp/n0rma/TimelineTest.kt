@@ -120,3 +120,34 @@ class RebaselineBoundTest {
         assertEquals(before, e.snapshot().events.size)
     }
 }
+
+class OwnNameCopyTest {
+    private fun eng() = io.github.sloppytopp.n0rma.detect.Engine({ 1_700_000_000_000L }, { _, _ -> }).also { it.running = true; it.wifiEnabled = true }
+    private fun obs(b: String, n: String, l: Int) = io.github.sloppytopp.n0rma.detect.WifiObs(b, n, l)
+
+    @Test fun unconfirmedCopyOfAConfirmedNameIsAWatchEvenIfItWasAlreadyKnown() {
+        val e = eng()
+        e.loadKnownNets(setOf("0a:ee:00:00:00:99"))            // learned silently earlier, so "new network" logic would never fire
+        e.ownSsids = setOf("MyHome"); e.ownNets = mapOf("MyHome" to setOf("10:5a:95:39:ef:8a"))
+        e.onWifiScan(listOf(obs("10:5a:95:39:ef:8a", "MyHome", -40), obs("0a:ee:00:00:00:99", "MyHome", -70)))
+        val w = e.snapshot().events.filter { it.msg.contains("never confirmed") }
+        assertEquals(1, w.size)
+        assertEquals(io.github.sloppytopp.n0rma.detect.Level.WATCH, w[0].level)
+    }
+
+    @Test fun confirmedAddressesAreQuietAndCaseInsensitive() {
+        val e = eng()
+        e.ownSsids = setOf("MyHome"); e.ownNets = mapOf("MyHome" to setOf("10:5a:95:39:ef:8a"))
+        e.onWifiScan(listOf(obs("10:5A:95:39:EF:8A", "MyHome", -40)))
+        assertTrue(e.snapshot().events.none { it.msg.contains("YOUR network") })
+    }
+
+    @Test fun nameWithNothingConfirmedOnlyGetsAQuietReminder() {
+        val e = eng()
+        e.ownSsids = setOf("MyHome")
+        e.onWifiScan(listOf(obs("10:5a:95:39:ef:8a", "MyHome", -40)))
+        val ev = e.snapshot().events.filter { it.msg.contains("YOUR network 'MyHome'") }
+        assertEquals(1, ev.size)
+        assertEquals(io.github.sloppytopp.n0rma.detect.Level.OK, ev[0].level)
+    }
+}

@@ -146,6 +146,9 @@ class Engine(
     /** The user's own network names. An unknown network using one of them is the classic evil twin and is always reported, whatever the flood cap or signal strength. */
     @Volatile var ownSsids: Set<String> = emptySet()
 
+    /** Per own network name: the exact BSSIDs the user confirmed. A name alone proves nothing (anyone can broadcast it); the address is what is checked. */
+    @Volatile var ownNets: Map<String, Set<String>> = emptyMap()
+
     /** Rebaseline: treat these Wi-Fi networks as normal. */
     @Synchronized fun lockKnownNets(bssids: Collection<String>) { knownNets += bssids; netsLoaded = true; netSink(bssids.toList()) }
 
@@ -160,6 +163,25 @@ class Engine(
 
     /** "Delete all history" must also forget the in-memory trail, or following alerts would keep firing from deleted data. */
     @Synchronized fun clearTrail() { trail.clear(); lastTrail.clear(); followHits = emptyList(); followAt = 0 }
+
+    /**
+     * Evil-twin check, independent of the baseline and the flood cap: a network using the name of one of the user's networks from an address the user
+     * never confirmed. Once any address is confirmed for a name, every other one is a WATCH. Names with nothing confirmed yet (saved before addresses were
+     * recorded) get one quiet reminder a day instead, so an upgrade does not cry wolf at the user's own router.
+     */
+    private fun checkOwnNameCopies(rows: List<WifiRow>) {
+        if (ownSsids.isEmpty()) return
+        for ((name, rs) in rows.filter { it.ssid in ownSsids }.groupBy { it.ssid }) {
+            val confirmed = ownNets[name].orEmpty()
+            val strange = rs.filter { it.bssid.lowercase() !in confirmed }
+            if (strange.isEmpty()) continue
+            val r = strange.maxByOrNull { it.level }!!
+            if (confirmed.isEmpty())
+                emit("network", Level.OK, "twin-unconfirmed:$name", "A network is using the name of YOUR network '$name' (${r.bssid}, ${r.level} dBm) but you have not confirmed which address is yours: open Nearby and tap your own to confirm it", 86_400_000, wifiAt)
+            else
+                emit("network", Level.WATCH, "twin:$name", "A network is using the name of YOUR network '$name' from an address you never confirmed (${r.bssid}, ${r.level} dBm): possible copy / evil twin", 600_000, wifiAt)
+        }
+    }
 
     @Synchronized
     fun onWifiScan(obs: List<WifiObs>) {
@@ -181,6 +203,7 @@ class Engine(
             if (!ridFound && klass == "drone") drones += WifiHit(row, null, "drone-like network ($vendor)")
             if (klass == "camera") cams += WifiHit(row, null, "camera-like network")
         }
+        if (!demoMode) checkOwnNameCopies(rows)
         if (!demoMode && netsLoaded) {
             val firstEver = knownNets.isEmpty() && !baselineLocked   // after a Rebaseline an empty list is never "learn silently": that would hide every new network
             // After a Rebaseline the list must neither be wiped (new networks would go silent) nor grow without limit (a beacon flood of
@@ -190,11 +213,6 @@ class Engine(
                 val fresh = rows.filter { it.bssid !in knownNets }
                 if (fresh.isNotEmpty()) {
                     emit("network", Level.WATCH, "netflood", "Many new Wi-Fi networks are appearing (${fresh.size} just now): possible flood of fake networks. Treat unknown networks as suspect", 600_000, wifiAt)
-                    // Highest value first: a copy of one of the user's own network names, however weak. Keyed by name, so it is bounded by how many names the user has.
-                    fresh.filter { it.ssid in ownSsids }.groupBy { it.ssid }.forEach { (name, rs) ->
-                        val r = rs.maxByOrNull { it.level }!!
-                        emit("network", Level.WATCH, "twin:$name", "A new network is using the name of YOUR network '$name' (${r.bssid}, ${r.level} dBm): possible copy / evil twin", 600_000, wifiAt)
-                    }
                     // A flood must not hide a real rogue network: the strongest (closest) unknown ones are still named individually, once an hour each.
                     fresh.filter { it.level >= -60 }.sortedByDescending { it.level }.take(3).forEach {
                         emit("network", Level.WATCH, "newnet:${it.bssid}", "New Wi-Fi network since your baseline (close by): '${it.ssid}' ${it.bssid} ${it.level} dBm", 3_600_000, wifiAt)

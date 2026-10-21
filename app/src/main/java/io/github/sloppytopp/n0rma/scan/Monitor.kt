@@ -16,7 +16,7 @@ object Monitor {
     var snapshot by mutableStateOf(Snapshot())
         private set
 
-    fun refresh() { engine.ownSsids = io.github.sloppytopp.n0rma.data.Prefs.mySsids; snapshot = engine.snapshot() }
+    fun refresh() { engine.ownSsids = io.github.sloppytopp.n0rma.data.Prefs.mySsids; engine.ownNets = io.github.sloppytopp.n0rma.data.Prefs.myNetsBySsid(); snapshot = engine.snapshot() }
 
     /**
      * Rebaseline: the user has checked that the Wi-Fi networks around them are theirs or normal. Lock those in, and from now on flag any new

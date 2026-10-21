@@ -63,7 +63,7 @@ fun RoomsScreen() {
                 walkIdx++
                 if (walkIdx >= w.size) {
                     val latestNow = Store.latestScans()
-                    report = HouseWalk.report(w.mapNotNull { latestNow[it] }, { i -> Prefs.isMine(i.key) || Prefs.isMine(i.key.removePrefix("ble:")) }, { i -> i.kind == "wifi" && i.label in Prefs.mySsids })
+                    report = HouseWalk.report(w.mapNotNull { latestNow[it] }, { i -> Prefs.isMine(i.key) || Prefs.isMine(i.key.removePrefix("ble:")) || (i.kind == "wifi" && Prefs.isMyNet(i.key.removePrefix("wifi:"), i.label)) }, { i -> i.kind == "wifi" && i.label in Prefs.mySsids })
                     walk = null
                 }
             }
