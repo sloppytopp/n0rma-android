@@ -59,13 +59,17 @@ fun SurveyCard() {
     var wigleWarn by remember { mutableStateOf(false) }
     var clearAsk by remember { mutableStateOf(false) }
     var finding by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var band by remember { mutableStateOf("all") }
 
     LaunchedEffect(Monitor.surveying) { while (Monitor.surveying) { delay(4000); v++ } }
     // DB read + estimate are heavy on a long walk: keep them off the UI thread (they caused "app isn't responding").
-    val loaded by produceState<Triple<List<SurveyPoint>, List<Estimate>, Boolean>?>(null, v, Monitor.surveyCount) {
+    val loaded by produceState<Triple<List<SurveyPoint>, List<Estimate>, Boolean>?>(null, v, Monitor.surveyCount, band) {
         value = withContext(Dispatchers.Default) {
-            val pts = Store.survey(); val e = Survey.estimate(pts); Triple(pts, e, Survey.clustered(e))
+            val pts = Survey.onBand(Store.survey(), band); val e = Survey.estimate(pts); Triple(pts, e, Survey.clustered(e))
         }
+    }
+    val stats by produceState<List<Survey.BandStat>>(emptyList(), v, Monitor.surveyCount) {
+        value = withContext(Dispatchers.Default) { Survey.bandStats(Store.survey()) }
     }
     val points = loaded?.first ?: emptyList()
     val clustered = loaded?.third ?: false
@@ -94,6 +98,18 @@ fun SurveyCard() {
                 (Monitor.surveyNote?.let { "\n$it" } ?: ""), color = UiColors.text, fontSize = 12.sp,
         )
 
+        if (stats.isNotEmpty()) {
+            Text("Wi-Fi bands heard: " + stats.joinToString("   ") { "${it.band} GHz - ${it.networks} network${if (it.networks == 1) "" else "s"}, strongest ${it.strongest} dBm" },
+                color = UiColors.text, fontSize = 12.sp)
+            Text("5 GHz is shorter-range than 2.4 GHz and passes through walls less, so a strong 5 GHz signal usually means the source is close. Show:", color = UiColors.dim, fontSize = 12.sp)
+            androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf("all" to "All", "2.4" to "2.4 GHz", "5" to "5 GHz", "6" to "6 GHz").forEach { (k, name) ->
+                    if (k == "all" || stats.any { it.band == k }) TextButton(onClick = { band = k }) {
+                        Text(name, color = if (band == k) UiColors.text else UiColors.dim, fontSize = if (band == k) 14.sp else 13.sp)
+                    }
+                }
+            }
+        }
         if (points.isNotEmpty()) {
             SurveyMap(points, est)
             if (clustered) Text("Every source landed in the same spot, so no positions are shown: that happens when you stay in one place, or when GPS drifts indoors. " +

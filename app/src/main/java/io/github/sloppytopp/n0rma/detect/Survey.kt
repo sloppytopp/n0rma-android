@@ -40,6 +40,26 @@ class Estimate(
 object Survey {
     private const val K = 111_320.0
 
+    /** "2.4", "5" or "6" GHz from a Wi-Fi centre frequency in MHz; "" for non-Wi-Fi sightings (freq 0). */
+    fun band(freqMhz: Int): String = when {
+        freqMhz in 2400..2500 -> "2.4"
+        freqMhz in 4900..5900 -> "5"
+        freqMhz in 5925..7125 -> "6"
+        else -> ""
+    }
+
+    /** Keep Wi-Fi points on one band ("2.4", "5", "6"); anything else ("all") keeps every point, trackers included. */
+    fun onBand(points: List<SurveyPoint>, band: String): List<SurveyPoint> =
+        if (band != "2.4" && band != "5" && band != "6") points else points.filter { band(it.freq) == band }
+
+    class BandStat(val band: String, val networks: Int, val strongest: Int)
+
+    /** Distinct networks and strongest signal per Wi-Fi band. Bands with no sightings are left out. */
+    fun bandStats(points: List<SurveyPoint>): List<BandStat> =
+        points.filter { it.kind == "wifi" && band(it.freq).isNotEmpty() }.groupBy { band(it.freq) }
+            .map { (b, ps) -> BandStat(b, ps.map { it.key }.toSet().size, ps.maxOf { it.rssi }) }
+            .sortedBy { it.band.toDouble() }
+
     /** True when every estimate sits in one small spot - the sign of standing still (or indoor GPS drift), not of real findings. */
     fun clustered(est: List<Estimate>, withinM: Double = 30.0): Boolean {
         if (est.size < 3) return false
@@ -102,6 +122,9 @@ object Export {
     }
 
     /** Google Earth / any KML viewer. Pins are ESTIMATES with a radius in the description. */
+    private fun bandOf(key: String, points: List<SurveyPoint>): String =
+        points.firstOrNull { it.key == key && Survey.band(it.freq).isNotEmpty() }?.let { ", ${Survey.band(it.freq)} GHz" } ?: ""
+
     fun kml(home: Pair<Double, Double>?, points: List<SurveyPoint>, estimates: List<Estimate>, generatedMs: Long): String = buildString {
         fun style(id: String, abgr: String) = append("<Style id=\"$id\"><IconStyle><color>$abgr</color><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>\n")
         append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<kml xmlns=\"http://www.opengis.net/kml/2.2\"><Document>\n")
@@ -119,7 +142,7 @@ object Export {
         estimates.forEach { e ->
             append("<Placemark><name>${esc(e.label.ifEmpty { e.key })}</name><styleUrl>#${styleFor(e.klass, e.kind)}</styleUrl><description>")
             append(esc("${e.key}${if (e.vendor.isNotEmpty()) " - ${e.vendor}" else ""}\nType: ${e.kind}${if (e.klass.isNotEmpty() && e.klass != "other") " (${e.klass}-like)" else ""}\n" +
-                "Strongest ${e.bestRssi} dBm, ${e.samples} samples\nEstimated position, about +/- ${Math.round(e.radiusM)} m"))
+                "Strongest ${e.bestRssi} dBm, ${e.samples} samples${bandOf(e.key, points)}\nEstimated position, about +/- ${Math.round(e.radiusM)} m"))
             append("</description><Point><coordinates>${e.lon},${e.lat},0</coordinates></Point></Placemark>\n")
         }
         append("</Folder>\n</Document></kml>\n")

@@ -93,6 +93,9 @@ fun RoomsScreen() {
         var lens by remember { mutableStateOf(false) }
         TextButton(onClick = { lens = true }) { Text("Open the lens finder (camera + torch)") }
         if (lens) LensFinder { lens = false }
+        var mag by remember { mutableStateOf(false) }
+        TextButton(onClick = { mag = true }) { Text("Open the magnetic locator (close-range, finds nearby electronics)") }
+        if (mag) MagnetometerSweep { mag = false }
 
         val w = walk
         if (w == null && sweeping == null) {
