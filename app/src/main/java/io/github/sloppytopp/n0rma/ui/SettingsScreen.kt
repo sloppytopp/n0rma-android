@@ -186,6 +186,11 @@ fun SettingsScreen() {
         if (Prefs.myDevices.isEmpty()) Text("none yet - tap \"This is mine\" on a flagged item on the Status tab", color = UiColors.dim, fontSize = 12.sp)
         Prefs.myDevices.sorted().forEach { d -> Row { Text(d.removePrefix("ble:"), color = UiColors.text, fontSize = 13.sp, modifier = Modifier.weight(1f)); TextButton(onClick = { Prefs.unmarkMine(d); Monitor.refresh() }) { Text("Remove") } } }
         TextButton(onClick = { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }) { Text("Battery settings (allow unrestricted background use)") }
-        Text("N0RMA v0.2 - detect-only. Nothing leaves this phone except the optional address lookup above.", color = UiColors.faint, fontSize = 11.sp)
+        Text("About", color = UiColors.text, fontSize = 16.sp)
+        Text("N0RMA is free, open source and detect-only, with no ads or tracking. If it helped you, you can support it. " +
+            "The link opens in your browser; this app itself never goes online.", color = UiColors.dim, fontSize = 12.sp)
+        TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://buymeacoffee.com/rhino"))) }) { Text("Buy me a coffee") }
+        val version = runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
+        Text("N0RMA v$version - detect-only. Nothing leaves this phone except the optional address lookup above.", color = UiColors.faint, fontSize = 11.sp)
     }
 }
