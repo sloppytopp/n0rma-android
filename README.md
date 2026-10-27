@@ -92,5 +92,8 @@ Release builds read signing details from an untracked `keystore.properties`; wit
 ## Related
 - [n0rma](https://github.com/sloppytopp/n0rma) - the Linux sibling (`pip install n0rma`) with the same detection, plus RTL-SDR support.
 
+## Support
+N0RMA is free, with no ads or tracking, and stays that way for every detection feature. If it helped you, you can [buy me a coffee](https://buymeacoffee.com/rhino). Starring the repo and telling someone who needs it helps just as much.
+
 ## Contributing, security, license
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md). How it works and what it cannot do: [docs/METHODOLOGY.md](docs/METHODOLOGY.md). Design notes: [docs/design.md](docs/design.md). MIT licensed.
