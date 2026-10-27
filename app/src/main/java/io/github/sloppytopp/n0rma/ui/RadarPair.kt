@@ -58,7 +58,9 @@ private fun frac(m: Double): Float {
     return 0.95f
 }
 
-private fun band(m: Double) = when { m < 3 -> "right here"; m < 8 -> "in this room"; m < 25 -> "in the house"; else -> "outside or far" }
+/** Plain-language guess from signal strength. Weak signals are only "far or behind walls": strength can't tell a distant device from a close one behind a wall. */
+private fun band(m: Double, rssi: Int) =
+    (when { m < 3 -> "right here"; m < 8 -> "probably in this room"; m < 25 -> "weak signal: far away or behind walls"; else -> "very weak: far away or outside" }) + " ($rssi dBm)"
 
 private fun items(s: Snapshot): List<Item> {
     val out = ArrayList<Item>()
@@ -72,12 +74,12 @@ private fun items(s: Snapshot): List<Item> {
         val makerNote = vendor?.let { " Its address resembles ${it.name}${if (it.privateCopy) " (a private copy of it)" else ""}; addresses can be copied, so confirm it is your device." } ?: ""
         val (sentence, col, flag) = when {
             cam && m >= 25 -> Triple("Looks like a camera's Wi-Fi, but it's far away - most likely a neighbor's. Only a concern if it gets stronger.", UiColors.watch, false)
-            cam -> Triple("Looks like a camera or drone link, ${band(m)}. Worth a look.", UiColors.alert, true)
+            cam -> Triple("Looks like a camera or drone link, ${band(m, w.level)}. Worth a look.", UiColors.alert, true)
             mine -> Triple("Your network.", UiColors.good, false)
             "wifi:" + w.bssid in Prefs.neighbors -> Triple("A neighbor's or far-away network. It was weak in every room of your house walk.", UiColors.neutral, false)
-            hidden && m < 8 -> Triple("A hidden network ${band(m)}. It doesn't broadcast a name, so check whether one of your devices makes it.$makerNote", UiColors.watch, true)
-            hidden -> Triple("A hidden network, ${band(m)}.$makerNote", UiColors.neutral, false)
-            else -> Triple("A Wi-Fi network, ${band(m)}.", UiColors.neutral, false)
+            hidden && m < 8 -> Triple("A hidden network ${band(m, w.level)}. It doesn't broadcast a name, so check whether one of your devices makes it.$makerNote", UiColors.watch, true)
+            hidden -> Triple("A hidden network, ${band(m, w.level)}.$makerNote", UiColors.neutral, false)
+            else -> Triple("A Wi-Fi network, ${band(m, w.level)}.", UiColors.neutral, false)
         }
         out += Item("wifi:" + w.bssid, w.ssid.ifBlank { "(hidden)" }, sentence, m, col, flag, bt = false,
             detail = "MAC (BSSID): ${w.bssid}\nMaker: ${w.vendor.ifEmpty { "unknown (private address)" }}${if (vendor?.privateCopy == true) " (private copy of its address)" else ""}\nSignal: ${w.level} dBm (about ${"%.0f".format(m)} m)\nChannel frequency: ${w.freq} MHz\nSecurity: ${w.caps.ifEmpty { "unknown" }}",
@@ -88,7 +90,7 @@ private fun items(s: Snapshot): List<Item> {
         val name = t.label.substringBefore(" SEPARATED")
         val det = "Address: ${t.addr}\nSignal: ${t.rssi} dBm (about ${"%.0f".format(m)} m)\nHeard for: ${t.seenS} s"
         out += if (t.mine) Item("ble:" + t.addr, name, "Your tracker.", m, UiColors.good, false, true, det)
-        else Item("ble:" + t.addr, name, "A tracker that isn't yours, ${band(m)}. Seen for ${maxOf(1, t.seenS / 60)} min.", m, UiColors.watch, true, true, det)
+        else Item("ble:" + t.addr, name, "A tracker that isn't yours, ${band(m, t.rssi)}. Seen for ${maxOf(1, t.seenS / 60)} min.", m, UiColors.watch, true, true, det)
     }
     return out
 }
