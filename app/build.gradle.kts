@@ -21,6 +21,7 @@ android {
         versionCode = 9
         versionName = "0.7.0"
         buildConfigField("boolean", "SDR", "false")
+        buildConfigField("boolean", "PRO", "false")
     }
     signingConfigs {
         create("release") {
@@ -53,6 +54,16 @@ android {
         applicationIdSuffix = ".sdr"
         versionNameSuffix = "-sdr"
         buildConfigField("boolean", "SDR", "true")
+    }
+    // Pro build (./gradlew assemblePro): same app plus the case file (saved cases, PDF, photos). A separate app (suffix ".pro") so it installs
+    // next to the free one; the free build never contains a FileProvider. No new permission, no internet.
+    buildTypes.create("pro") {
+        initWith(buildTypes.getByName("release"))
+        vcsInfo.include = false
+        matchingFallbacks += "release"
+        applicationIdSuffix = ".pro"
+        versionNameSuffix = "-pro"
+        buildConfigField("boolean", "PRO", "true")
     }
     // F-Droid: no Google-signed dependency blob inside the APK/bundle
     dependenciesInfo { includeInApk = false; includeInBundle = false }
