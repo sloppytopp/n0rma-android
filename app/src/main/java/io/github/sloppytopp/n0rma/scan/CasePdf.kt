@@ -74,7 +74,13 @@ object CasePdf {
             info.notes.forEach { n -> line(n.label, sub, 16); para(n.text, body, 90); y += 4f }
             info.photos.forEach { p ->
                 val f = photoFile(p.file)
-                val bmp = if (f.isFile) BitmapFactory.decodeFile(f.path) else null
+                // the page shows the photo at most ~480 pt wide, so decode it near 1000 px: embedding the full-size bitmap made PDFs several MB per photo
+                val bmp = if (f.isFile) {
+                    val b = BitmapFactory.Options().apply { inJustDecodeBounds = true }.also { BitmapFactory.decodeFile(f.path, it) }
+                    var sample = 1
+                    while (maxOf(b.outWidth, b.outHeight) / (sample * 2) >= 1000) sample *= 2
+                    BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = sample })
+                } else null
                 if (bmp != null) {
                     val w = minOf(480f, W - 2f * M); val h = w * bmp.height / bmp.width
                     val hh = minOf(h, 360f); val ww = hh * bmp.width / bmp.height
