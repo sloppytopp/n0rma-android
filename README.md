@@ -56,6 +56,8 @@ Only use the official sources below. Other "APK sites" can host modified copies,
 | **Obtainium** (auto-updates from GitHub) | [Add N0RMA to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/sloppytopp/n0rma-android) - or in Obtainium tap **Add App** and paste `https://github.com/sloppytopp/n0rma-android` |
 | **F-Droid** | [N0RMA on F-Droid](https://f-droid.org/packages/io.github.sloppytopp.n0rma/) |
 
+An optional **Pro build** (`./gradlew assemblePro`, installs as a separate app) adds saved case files: your notes and photos, a shareable PDF and the verifiable text report. All detection stays free in every build.
+
 Requires Android 8+ and a phone with Bluetooth LE. Tested on a TCL 5087Z (Android 11) and, by an independent reviewer on the F-Droid merge request, a Samsung SM-G998B (Android 15): installs, launches, renders every tab, no network traffic, no crashes (v0.6.0; install and UI only, detection was not exercised). After installing, tap **Try it with sample data** to see every screen work before trusting it with anything real.
 
 ### Verify your download

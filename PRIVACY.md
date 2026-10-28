@@ -21,6 +21,11 @@ _The optional SDR build (a separate app, `...n0rma.sdr`, built with `./gradlew a
 | Vibrate | Optional vibrate-only alerts, and the optional vibration guide in the finder |
 | Camera | Only for the **Lens finder** (Rooms tab), and only when you open it. The camera and flash run as a torch so small lens glints stand out. Each picture is analysed in memory on the phone and discarded: **nothing is saved, recorded, uploaded or shared**, and the app has no internet permission to send it anywhere. Android asks you first, and the light and camera are released the moment you close the finder. You can deny the permission and everything else still works |
 
+## Pro case files (the `...n0rma.pro` build only)
+- The Pro build lets you save a **case**: a copy of the evidence report plus the notes you type and photos you add. Photos are re-encoded when added, which removes their location and camera data.
+- Saved cases are kept in the app's private storage **until you delete them** (Settings -> History -> Case file -> Delete). They are the one exception to the 30-day rule and are **not** removed by "Delete all history". Uninstalling the app erases them.
+- Sharing a case (a .txt and a .pdf) happens only when you tap Share, through Android's share sheet. The Pro build has no extra permission and no internet access.
+
 ## Things you choose to do
 - **Address search** (Settings -> Home location): Android's own location service looks the address up. That lookup leaves your phone; typing coordinates or using GPS does not. N0RMA itself sends nothing.
 - **Exports** (KML / WiGLE CSV): saved as files where you choose. N0RMA never uploads them. If you upload a WiGLE file yourself, WiGLE publishes it on a public map.
