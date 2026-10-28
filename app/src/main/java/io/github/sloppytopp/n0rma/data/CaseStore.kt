@@ -27,7 +27,9 @@ class CaseStore(private val root: File) {
 
     fun photoFile(id: String, name: String): File {
         val d = dir(id) ?: throw IllegalArgumentException("bad case id")
-        return File(File(d, "photos"), File(name).name)       // File(name).name drops any path part
+        val leaf = File(name).name                           // drops any path part
+        require(leaf.isNotEmpty() && leaf != "." && leaf != "..") { "bad photo name" }
+        return File(File(d, "photos"), leaf)
     }
 
     fun create(nowMs: Long, title: String, report: String, notes: List<CaseNote>, photos: List<CasePhoto>): CaseInfo {

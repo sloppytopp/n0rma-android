@@ -73,3 +73,12 @@ class CaseStorePhotosTest {
         assertEquals("jpegbytes", s.photoFile(c.id, "photo-1.jpg").readText())
     }
 }
+
+class CaseStorePathTest {
+    @get:Rule val tmp = TemporaryFolder()
+    @Test fun dotDotPhotoNameIsRejected() {
+        val s = CaseStore(tmp.newFolder("cases"))
+        val c = s.create(1000L, "t", "r", emptyList(), emptyList())
+        for (bad in listOf("..", ".", "")) try { s.photoFile(c.id, bad); org.junit.Assert.fail("accepted '$bad'") } catch (e: IllegalArgumentException) {}
+    }
+}

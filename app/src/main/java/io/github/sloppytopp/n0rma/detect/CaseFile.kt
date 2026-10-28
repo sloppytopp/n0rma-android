@@ -27,7 +27,7 @@ object CaseFile {
         return buildString {
             appendLine(HEADING)
             appendLine("- These entries were typed or added by the person using the app. The app did not check them. Photo import times come from this phone's clock.")
-            notes.forEach { n -> appendLine("- Note: ${n.label.replace('\n', ' ')}"); appendLine(indent(n.text)) }
+            notes.forEach { n -> appendLine("- Note: ${n.label.replace(Regex("[\r\n]"), " ")}"); appendLine(indent(n.text)) }
             photos.forEach { p ->
                 appendLine("- Photo ${p.file}: sha256=${p.sha256} (location data removed) imported ${fmt.format(Date(p.importedMs))}")
                 if (p.whereWhen.isNotBlank()) { appendLine("  Where and when found, in the person's words:"); appendLine(indent(p.whereWhen)) }

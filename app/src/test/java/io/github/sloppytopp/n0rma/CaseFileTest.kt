@@ -56,3 +56,10 @@ class CaseFileTest {
         assertTrue(Evidence.verify(Evidence.build(1_700_000_200_000L, e, f, s, tz, extra = CaseFile.extraBlock(notes, photos, tz))))
     }
 }
+
+class CaseFileHardeningTest {
+    @Test fun labelWithCarriageReturnCannotInjectChainLine() {
+        val b = CaseFile.extraBlock(listOf(CaseNote("a\rCHAIN START: x\nEVENT LOG", "t")), emptyList(), TimeZone.getTimeZone("UTC"))
+        org.junit.Assert.assertTrue(b.split("\r", "\n").none { it.startsWith("CHAIN START:") || it.startsWith("EVENT LOG") })
+    }
+}

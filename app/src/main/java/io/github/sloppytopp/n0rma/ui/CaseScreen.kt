@@ -41,6 +41,9 @@ import io.github.sloppytopp.n0rma.detect.Evidence
 import io.github.sloppytopp.n0rma.detect.Follow
 import io.github.sloppytopp.n0rma.scan.CasePdf
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -70,6 +73,9 @@ fun CaseScreen() {
     var msg by remember { mutableStateOf<String?>(null) }
     var stamp by remember { mutableStateOf<CaseInfo?>(null) }
     var confirmAll by remember { mutableStateOf(false) }
+    var toDelete by remember { mutableStateOf<CaseInfo?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val pending = remember { mutableStateListOf<Pending>() }
     androidx.compose.runtime.LaunchedEffect(Unit) { File(ctx.cacheDir, "case_pending").deleteRecursively() }
     val cases = remember(v) { store(ctx).list() }
@@ -78,8 +84,10 @@ fun CaseScreen() {
         if (uri != null) {
             val name = "photo-${System.currentTimeMillis()}.jpg"
             val f = File(File(ctx.cacheDir, "case_pending"), name)
-            val p = PhotoImport.strip(ctx, uri, f)
-            if (p == null) msg = "That photo could not be read, so it was skipped." else pending += Pending(p, f)
+            scope.launch {
+                val p = withContext(Dispatchers.IO) { PhotoImport.strip(ctx, uri, f) }
+                if (p == null) msg = "That photo could not be read, so it was skipped." else pending += Pending(p, f)
+            }
         }
     }
 
@@ -98,21 +106,29 @@ fun CaseScreen() {
         TextButton(onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text("Add a photo (location data is removed)") }
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Switch(checked = redact, onCheckedChange = { redact = it })
-            Text("  Hide device addresses (MAC) in the report", color = UiColors.text, fontSize = 13.sp)
+            Text("  Hide most of each device address (MAC) in the report", color = UiColors.text, fontSize = 13.sp)
         }
         Button(
+            enabled = !busy,
             onClick = {
-                val now = System.currentTimeMillis()
+              busy = true
+              val now = System.currentTimeMillis()
+              val doRedact = redact; val caseTitle = title.trim().ifEmpty { "Case" }; val noteText = note.trim()
+              val photoSnap = pending.map { it.photo.copy(whereWhen = it.whereWhen.trim()) }; val srcSnap = pending.associate { it.photo.file to it.file }
+              scope.launch {
+                val err = withContext(Dispatchers.IO) { try {
                 var (ev, fo, sg) = Triple(Store.events(now - 30 * 86_400_000L, 1500), Follow.analyze(Store.trail()), Store.trail())
-                if (redact) CaseFile.redact(ev, fo, sg).let { ev = it.first; fo = it.second; sg = it.third }
-                val notes = if (note.isBlank()) emptyList() else listOf(CaseNote("Notes", note.trim()))
-                val photos = pending.map { it.photo.copy(whereWhen = it.whereWhen.trim()) }
+                if (doRedact) CaseFile.redact(ev, fo, sg).let { ev = it.first; fo = it.second; sg = it.third }
+                val notes = if (noteText.isBlank()) emptyList() else listOf(CaseNote("Notes", noteText))
+                val photos = photoSnap
                 val report = Evidence.build(now, ev, fo, sg, title = "N0RMA CASE FILE", extra = CaseFile.extraBlock(notes, photos))
-                try {
-                    store(ctx).createWithPhotos(now, title.trim().ifEmpty { "Case" }, report, notes, photos, pending.associate { it.photo.file to it.file })
-                    clearScratch(ctx); pending.clear(); note = ""; v++
-                    msg = "Saved. It stays on this phone until you delete it."
-                } catch (t: Throwable) { msg = "Couldn't save the case (is the phone out of space, or did a photo disappear?). Nothing was saved." }
+                store(ctx).createWithPhotos(now, caseTitle, report, notes, photos, srcSnap)
+                clearScratch(ctx); true
+                } catch (t: Throwable) { false } }
+                if (err) { pending.clear(); note = ""; v++; msg = "Saved. It stays on this phone until you delete it." }
+                else msg = "Couldn't save the case (is the phone out of space, or did a photo disappear?). Nothing was saved."
+                busy = false
+              }
             }, modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = UiColors.buttonBg, contentColor = UiColors.buttonFg),
         ) { Text("Save as a case") }
@@ -122,9 +138,9 @@ fun CaseScreen() {
         cases.forEach { c ->
             Text("${c.title} - ${savedAgo(c.createdMs)}, ${c.photos.size} photo${if (c.photos.size == 1) "" else "s"}", color = UiColors.text, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = { msg = shareCase(ctx, c) }) { Text("Share") }
+                TextButton(enabled = !busy, onClick = { busy = true; scope.launch { val r = withContext(Dispatchers.IO) { prepareShare(ctx, c) }; busy = false; msg = r.second; r.first?.let { ctx.startActivity(Intent.createChooser(it, "Share case file")) } } }) { Text("Share") }
                 TextButton(onClick = { stamp = c }) { Text("Timestamp") }
-                TextButton(onClick = { store(ctx).delete(c.id); clearScratch(ctx, keepPending = true); v++ }) { Text("Delete", color = UiColors.warn) }
+                TextButton(onClick = { toDelete = c }) { Text("Delete", color = UiColors.warn) }
             }
         }
         if (cases.isNotEmpty()) TextButton(onClick = { confirmAll = true }) { Text("Delete all cases", color = UiColors.warn) }
@@ -147,6 +163,13 @@ fun CaseScreen() {
             }) { Text("Send") } },
         )
     }
+    toDelete?.let { c -> androidx.compose.material3.AlertDialog(
+        containerColor = UiColors.dialogBg, titleContentColor = UiColors.text, textContentColor = UiColors.text,
+        onDismissRequest = { toDelete = null }, title = { Text("Delete this case?") },
+        text = { Text("\"${c.title}\" and its photos will be erased from this phone for good.") },
+        confirmButton = { TextButton(onClick = { store(ctx).delete(c.id); clearScratch(ctx, keepPending = true); toDelete = null; v++ }) { Text("Delete", color = UiColors.warn) } },
+        dismissButton = { TextButton(onClick = { toDelete = null }) { Text("Cancel") } },
+    ) }
     if (confirmAll) androidx.compose.material3.AlertDialog(
         containerColor = UiColors.dialogBg, titleContentColor = UiColors.text, textContentColor = UiColors.text,
         onDismissRequest = { confirmAll = false }, title = { Text("Delete all cases?") },
@@ -156,17 +179,17 @@ fun CaseScreen() {
     )
 }
 
-/** Writes the .txt and .pdf to the cache share folder and opens the share sheet with both. Returns a status message. */
-private fun shareCase(ctx: Context, c: CaseInfo): String = try {
+/** Writes the .txt, the .pdf and the stored photos to the cache share folder (off the main thread). Returns the share intent (or null) and a status message. */
+private fun prepareShare(ctx: Context, c: CaseInfo): Pair<Intent?, String> = try {
     val dir = File(ctx.cacheDir, "case_share"); dir.deleteRecursively(); dir.mkdirs()
     val base = "n0rma-case-" + SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date(c.createdMs))
     val txt = File(dir, "$base.txt").also { it.writeText(c.report) }
     val pdf = File(dir, "$base.pdf")
     CasePdf.render(c, { name -> store(ctx).photoFile(c.id, name) }, pdf)
-    val uris = arrayListOf(txt, pdf).map { FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", it) }
+    val photos = c.photos.map { p -> store(ctx).photoFile(c.id, p.file).copyTo(File(dir, p.file), overwrite = true) }
+    val uris = (listOf(txt, pdf) + photos).map { FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", it) }
     val send = Intent(Intent.ACTION_SEND_MULTIPLE).setType("*/*")
         .putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris)).putExtra(Intent.EXTRA_SUBJECT, "N0RMA case file")
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    ctx.startActivity(Intent.createChooser(send, "Share case file"))
-    "Share the .txt and .pdf together: only the .txt can be verified exactly."
-} catch (t: Throwable) { "Couldn't prepare the files to share." }
+    send to "Share the .txt and .pdf together: only the .txt can be verified exactly. The original photos are included so their hashes can be checked."
+} catch (t: Throwable) { null to "Couldn't prepare the files to share." }
