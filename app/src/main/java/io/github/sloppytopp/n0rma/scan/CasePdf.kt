@@ -53,7 +53,11 @@ object CasePdf {
         fun fit(t: String, p: Paint): List<String> = t.replace("\r", "").split("\n").flatMap { l ->
             if (l.isEmpty()) listOf("") else {
                 val out = ArrayList<String>(); var i = 0
-                while (i < l.length) { val n = p.breakText(l, i, l.length, true, maxW, null).coerceAtLeast(1); out += l.substring(i, i + n); i += n }
+                while (i < l.length) {
+                    var n = p.breakText(l, i, l.length, true, maxW, null).coerceAtLeast(1)
+                    if (i + n < l.length) { val sp = l.lastIndexOf(' ', i + n - 1); if (sp > i) n = sp - i + 1 }   // break at a space when there is one
+                    out += l.substring(i, i + n).trimEnd(); i += n
+                }
                 out
             }
         }
