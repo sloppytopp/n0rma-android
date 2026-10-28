@@ -41,10 +41,22 @@ object CaseFile {
     /** Hides all but the last byte of every MAC address. */
     fun redactMacs(s: String): String = MAC.replace(s) { "xx:xx:xx:xx:xx:" + it.groupValues[2].lowercase() }
 
-    private val QUOTED = Regex("'[^']*'")
+    // Greedy on purpose: a network name can itself contain an apostrophe, so hide everything from the first quote to the last one.
+    private val QUOTED = Regex("'.*'")
 
     /** Wi-Fi names (printed in single quotes in event messages) often identify a home, so they are hidden too. */
     fun redactNames(s: String): String = QUOTED.replace(s, "'[name hidden]'")
+
+    // Radio-sourced strings (SSIDs, device names) can carry any character. Every Unicode line break is flattened so one event is always one line.
+    private val BREAKS = Regex("[\\p{Cc}\\u0085\\u2028\\u2029]")
+    private fun clean(s: String) = BREAKS.replace(s, " ")
+
+    /** Run before building any report (redaction or not): keeps every event on a single line so the report and its timeline parse the same way. */
+    fun sanitize(events: List<EventRow>, follow: List<FollowHit>, sights: List<Sight>): Triple<List<EventRow>, List<FollowHit>, List<Sight>> = Triple(
+        events.map { it.copy(domain = clean(it.domain), msg = clean(it.msg)) },
+        follow.map { it.copy(key = clean(it.key), label = clean(it.label)) },
+        sights.map { it.copy(key = clean(it.key), label = clean(it.label)) },
+    )
 
     /** The flagged events of a built report as "time | level | area | detail" lines (chain hashes dropped), oldest first. */
     fun timeline(report: String): List<String> {

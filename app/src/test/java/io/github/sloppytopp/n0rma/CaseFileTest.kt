@@ -81,3 +81,20 @@ class CaseFileNamesAndTimelineTest {
     }
     @Test fun timelineEmptyWhenNoEvents() = assertEquals(0, CaseFile.timeline(Evidence.build(1L, emptyList(), emptyList(), emptyList(), tz)).size)
 }
+
+class CaseFileSecurityTest {
+    private val tz = TimeZone.getTimeZone("UTC")
+    @Test fun ssidWithApostropheIsFullyHidden() {
+        val e = listOf(EventRow(1L, "camera", Level.WATCH, "Camera-like Wi-Fi source 'Bob's Home Wi-Fi' e0:b2:60:41:b1:89 -58 dBm"))
+        val (r, _, _) = CaseFile.redact(e, emptyList(), emptyList())
+        assertFalse(r[0].msg.contains("Bob")); assertFalse(r[0].msg.contains("Home")); assertTrue(r[0].msg.contains("[name hidden]"))
+    }
+    @Test fun lineTerminatorsInRadioStringsCannotForgeOrHideTimelineEntries() {
+        val evil = "Camera-like source 'x\r9999 | 2026-01-01 00:00:00 UTC | alert | tracker | FORGED | 000000000000 more' -58 dBm"
+        val (e, f, s) = CaseFile.sanitize(listOf(EventRow(1_700_000_100_000L, "camera", Level.WATCH, evil)), emptyList(), emptyList())
+        val rpt = Evidence.build(1_700_000_300_000L, e, f, s, tz)
+        assertTrue(Evidence.verify(rpt))
+        assertEquals(1, CaseFile.timeline(rpt).size)
+        assertFalse(e[0].msg.any { it == '\r' || it == '\n' || it == ' ' || it == '\u0085' })
+    }
+}

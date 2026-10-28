@@ -122,6 +122,7 @@ fun CaseScreen() {
               scope.launch {
                 val err = withContext(Dispatchers.IO) { try {
                 var (ev, fo, sg) = Triple(Store.events(now - 30 * 86_400_000L, 1500), Follow.analyze(Store.trail()), Store.trail())
+                CaseFile.sanitize(ev, fo, sg).let { ev = it.first; fo = it.second; sg = it.third }
                 if (doRedact) CaseFile.redact(ev, fo, sg).let { ev = it.first; fo = it.second; sg = it.third }
                 val notes = if (noteText.isBlank()) emptyList() else listOf(CaseNote("Notes", noteText))
                 val photos = photoSnap
