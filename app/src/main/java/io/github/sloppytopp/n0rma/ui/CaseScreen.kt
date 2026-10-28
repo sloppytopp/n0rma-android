@@ -49,6 +49,11 @@ private class Pending(val photo: CasePhoto, val file: File, whereWhen: String = 
 
 private fun store(ctx: Context) = CaseStore(File(ctx.filesDir, "cases"))
 private fun chainEnd(report: String) = report.lines().firstOrNull { it.startsWith("CHAIN END (final hash): ") }?.removePrefix("CHAIN END (final hash): ")?.trim() ?: ""
+/** Shared copies and not-yet-saved photos live in the cache; wipe them whenever a case is deleted or saved (the pending list is in memory only). */
+private fun clearScratch(ctx: Context, keepPending: Boolean = false) {
+    File(ctx.cacheDir, "case_share").deleteRecursively()
+    if (!keepPending) File(ctx.cacheDir, "case_pending").deleteRecursively()
+}
 private fun savedAgo(ms: Long): String {
     val d = (System.currentTimeMillis() - ms) / 86_400_000L
     return if (d <= 0) "saved today" else if (d == 1L) "saved yesterday" else "saved $d days ago"
@@ -66,6 +71,7 @@ fun CaseScreen() {
     var stamp by remember { mutableStateOf<CaseInfo?>(null) }
     var confirmAll by remember { mutableStateOf(false) }
     val pending = remember { mutableStateListOf<Pending>() }
+    androidx.compose.runtime.LaunchedEffect(Unit) { File(ctx.cacheDir, "case_pending").deleteRecursively() }
     val cases = remember(v) { store(ctx).list() }
 
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
@@ -102,11 +108,11 @@ fun CaseScreen() {
                 val notes = if (note.isBlank()) emptyList() else listOf(CaseNote("Notes", note.trim()))
                 val photos = pending.map { it.photo.copy(whereWhen = it.whereWhen.trim()) }
                 val report = Evidence.build(now, ev, fo, sg, title = "N0RMA CASE FILE", extra = CaseFile.extraBlock(notes, photos))
-                val s = store(ctx)
-                val info = s.create(now, title.trim().ifEmpty { "Case" }, report, notes, photos)
-                pending.forEach { p -> p.file.copyTo(s.photoFile(info.id, p.photo.file), overwrite = true); p.file.delete() }
-                pending.clear(); note = ""; v++
-                msg = "Saved. It stays on this phone until you delete it."
+                try {
+                    store(ctx).createWithPhotos(now, title.trim().ifEmpty { "Case" }, report, notes, photos, pending.associate { it.photo.file to it.file })
+                    clearScratch(ctx); pending.clear(); note = ""; v++
+                    msg = "Saved. It stays on this phone until you delete it."
+                } catch (t: Throwable) { msg = "Couldn't save the case (is the phone out of space, or did a photo disappear?). Nothing was saved." }
             }, modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = UiColors.buttonBg, contentColor = UiColors.buttonFg),
         ) { Text("Save as a case") }
@@ -118,7 +124,7 @@ fun CaseScreen() {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = { msg = shareCase(ctx, c) }) { Text("Share") }
                 TextButton(onClick = { stamp = c }) { Text("Timestamp") }
-                TextButton(onClick = { store(ctx).delete(c.id); v++ }) { Text("Delete", color = UiColors.warn) }
+                TextButton(onClick = { store(ctx).delete(c.id); clearScratch(ctx, keepPending = true); v++ }) { Text("Delete", color = UiColors.warn) }
             }
         }
         if (cases.isNotEmpty()) TextButton(onClick = { confirmAll = true }) { Text("Delete all cases", color = UiColors.warn) }
@@ -145,7 +151,7 @@ fun CaseScreen() {
         containerColor = UiColors.dialogBg, titleContentColor = UiColors.text, textContentColor = UiColors.text,
         onDismissRequest = { confirmAll = false }, title = { Text("Delete all cases?") },
         text = { Text("This permanently erases every saved case and its photos from this phone.") },
-        confirmButton = { TextButton(onClick = { store(ctx).deleteAll(); confirmAll = false; v++ }) { Text("Delete", color = UiColors.warn) } },
+        confirmButton = { TextButton(onClick = { store(ctx).deleteAll(); clearScratch(ctx); pending.clear(); confirmAll = false; v++ }) { Text("Delete", color = UiColors.warn) } },
         dismissButton = { TextButton(onClick = { confirmAll = false }) { Text("Cancel") } },
     )
 }

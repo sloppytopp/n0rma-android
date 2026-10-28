@@ -6,7 +6,6 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import io.github.sloppytopp.n0rma.data.CaseInfo
-import io.github.sloppytopp.n0rma.detect.PdfLayout
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -49,11 +48,20 @@ object CasePdf {
         }
         fun need(h: Float) { if (page == null || y + h > H - M) newPage() }
         fun line(t: String, p: Paint, lh: Number) { val h = lh.toFloat(); need(h); c!!.drawText(t, M.toFloat(), y + p.textSize, p); y += h }
-        fun para(t: String, p: Paint, chars: Int) { val lh = p.textSize + 4f; PdfLayout.wrap(t, chars).forEach { line(it, p, lh) } }
+        val maxW = (W - 2 * M).toFloat()
+        // wrap by MEASURED width (not character count): capitals, CJK and emoji are wider than average text
+        fun fit(t: String, p: Paint): List<String> = t.replace("\r", "").split("\n").flatMap { l ->
+            if (l.isEmpty()) listOf("") else {
+                val out = ArrayList<String>(); var i = 0
+                while (i < l.length) { val n = p.breakText(l, i, l.length, true, maxW, null).coerceAtLeast(1); out += l.substring(i, i + n); i += n }
+                out
+            }
+        }
+        fun para(t: String, p: Paint, @Suppress("UNUSED_PARAMETER") chars: Int = 0) { val lh = p.textSize + 4f; fit(t, p).forEach { line(it, p, lh) } }
 
         newPage()
         line("N0RMA case file", head, 24)
-        line(info.title, sub, 18)
+        para(info.title, sub)
         line("Saved " + SimpleDateFormat("yyyy-MM-dd HH:mm z", Locale.US).format(Date(info.createdMs)), small, 14)
         y += 6f; para(NOTICE, body, 90); y += 8f
 
@@ -76,10 +84,7 @@ object CasePdf {
 
         newPage()
         line("Report text (the verifiable record)", sub, 18)
-        PdfLayout.paginate(PdfLayout.wrap(info.report, 105), 62).forEachIndexed { i, ls ->
-            if (i > 0) newPage()
-            ls.forEach { line(it, mono, 11f) }
-        }
+        fit(info.report, mono).forEach { line(it, mono, 11f) }
 
         newPage()
         line(STEPS[0], head, 24)

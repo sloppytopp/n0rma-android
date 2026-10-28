@@ -55,3 +55,21 @@ class CaseStoreTest {
         assertNull(s.load("../x")); s.delete("../x")
     }
 }
+
+class CaseStorePhotosTest {
+    @get:Rule val tmp = TemporaryFolder()
+    private val photo = CasePhoto("photo-1.jpg", "ab".repeat(32), 1L, "")
+
+    @Test fun failedPhotoCopyLeavesNoPartialCase() {
+        val root = tmp.newFolder("cases"); val s = CaseStore(root)
+        val missing = java.io.File(tmp.root, "gone.jpg")
+        try { s.createWithPhotos(1000L, "t", "r", emptyList(), listOf(photo), mapOf("photo-1.jpg" to missing)); org.junit.Assert.fail("should throw") } catch (e: java.io.IOException) {}
+        assertTrue(s.list().isEmpty()); assertEquals(0, root.listFiles()!!.size)
+    }
+    @Test fun createWithPhotosCopiesFiles() {
+        val s = CaseStore(tmp.newFolder("cases"))
+        val src = tmp.newFile("photo-1.jpg").also { it.writeText("jpegbytes") }
+        val c = s.createWithPhotos(1000L, "t", "r", emptyList(), listOf(photo), mapOf("photo-1.jpg" to src))
+        assertEquals("jpegbytes", s.photoFile(c.id, "photo-1.jpg").readText())
+    }
+}

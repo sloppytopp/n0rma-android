@@ -44,6 +44,15 @@ class CaseStore(private val root: File) {
         return CaseInfo(id, title, ms, report, notes, photos)
     }
 
+    /** Like [create] but also copies the photo files in; if anything fails, the half-made case is removed and the error is rethrown. */
+    fun createWithPhotos(nowMs: Long, title: String, report: String, notes: List<CaseNote>, photos: List<CasePhoto>, sources: Map<String, File>): CaseInfo {
+        val info = create(nowMs, title, report, notes, photos)
+        try {
+            photos.forEach { p -> (sources[p.file] ?: throw java.io.IOException("missing photo ${p.file}")).copyTo(photoFile(info.id, p.file), overwrite = true) }
+        } catch (t: Throwable) { delete(info.id); throw if (t is java.io.IOException) t else java.io.IOException(t) }
+        return info
+    }
+
     fun load(id: String): CaseInfo? {
         val d = dir(id) ?: return null
         val meta = File(d, "meta.txt"); val rep = File(d, "report.txt")
