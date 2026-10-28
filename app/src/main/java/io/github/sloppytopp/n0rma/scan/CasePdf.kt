@@ -20,6 +20,7 @@ object CasePdf {
     const val NOTICE = "This is a documented, tamper-evident record made by the N0RMA app from what this phone's radios heard. " +
         "It is not proof of who placed a device, and it is not a guarantee of any outcome."
 
+    private const val MAX_TIMELINE = 40
     val NOT_CHECKED = listOf(
         "Cellular and GPS trackers, and any device that does not transmit Bluetooth or Wi-Fi.",
         "Cameras that only record to a memory card, wired microphones, and anything outside radio range.",
@@ -75,6 +76,14 @@ object CasePdf {
         line("Saved " + SimpleDateFormat("yyyy-MM-dd HH:mm z", Locale.US).format(Date(info.createdMs)), small, 14)
         y += 6f; para(NOTICE, body, 90); y += 8f
 
+        line("Timeline of flagged events", sub, 18)
+        val tl = io.github.sloppytopp.n0rma.detect.CaseFile.timeline(info.report)
+        if (tl.isEmpty()) para("No watch or alert events were recorded in this period.", body)
+        else {
+            tl.take(MAX_TIMELINE).forEach { para(it, small) }
+            if (tl.size > MAX_TIMELINE) para("... and ${tl.size - MAX_TIMELINE} more; the full list is in the report text below.", small)
+        }
+        y += 6f
         line("What this phone cannot check", sub, 18)
         NOT_CHECKED.forEach { para("- $it", body) }
         y += 6f

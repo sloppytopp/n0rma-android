@@ -63,3 +63,21 @@ class CaseFileHardeningTest {
         org.junit.Assert.assertTrue(b.split("\r", "\n").none { it.startsWith("CHAIN START:") || it.startsWith("EVENT LOG") })
     }
 }
+
+class CaseFileNamesAndTimelineTest {
+    private val tz = TimeZone.getTimeZone("UTC")
+    @Test fun networkNamesInQuotesAreHidden() {
+        val e = listOf(EventRow(1L, "camera", Level.WATCH, "Camera-like Wi-Fi source 'Smith Family 5G' e0:b2:60:41:b1:89 -58 dBm"))
+        val (r, _, _) = CaseFile.redact(e, emptyList(), emptyList())
+        org.junit.Assert.assertFalse(r[0].msg.contains("Smith")); org.junit.Assert.assertTrue(r[0].msg.contains("'[name hidden]'"))
+    }
+    @Test fun timelineListsFlaggedEventsWithoutHashes() {
+        val ev = listOf(EventRow(1_700_000_100_000L, "tracker", Level.ALERT, "Tile tracker nearby"), EventRow(1_700_000_200_000L, "camera", Level.WATCH, "Camera-like source"))
+        val rpt = Evidence.build(1_700_000_300_000L, ev, emptyList(), emptyList(), tz)
+        val t = CaseFile.timeline(rpt)
+        assertEquals(2, t.size)
+        assertTrue(t[0].contains("alert") && t[0].contains("Tile tracker nearby"))
+        assertFalse(t.any { it.contains(Regex("\\| [0-9a-f]{12}$").pattern) || Regex("[0-9a-f]{12}$").containsMatchIn(it) })
+    }
+    @Test fun timelineEmptyWhenNoEvents() = assertEquals(0, CaseFile.timeline(Evidence.build(1L, emptyList(), emptyList(), emptyList(), tz)).size)
+}

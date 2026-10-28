@@ -77,7 +77,11 @@ fun CaseScreen() {
     var busy by remember { mutableStateOf(false) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val pending = remember { mutableStateListOf<Pending>() }
-    androidx.compose.runtime.LaunchedEffect(Unit) { File(ctx.cacheDir, "case_pending").deleteRecursively() }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        File(ctx.cacheDir, "case_pending").deleteRecursively()
+        // shared copies are only needed while the receiving app reads them: sweep any older than an hour
+        File(ctx.cacheDir, "case_share").listFiles()?.forEach { if (System.currentTimeMillis() - it.lastModified() > 3_600_000L) it.delete() }
+    }
     val cases = remember(v) { store(ctx).list() }
 
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
@@ -106,7 +110,7 @@ fun CaseScreen() {
         TextButton(onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text("Add a photo (location data is removed)") }
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Switch(checked = redact, onCheckedChange = { redact = it })
-            Text("  Hide most of each device address (MAC) in the report", color = UiColors.text, fontSize = 13.sp)
+            Text("  Hide device addresses (MAC) and Wi-Fi network names in the report", color = UiColors.text, fontSize = 13.sp)
         }
         Button(
             enabled = !busy,
@@ -191,5 +195,5 @@ private fun prepareShare(ctx: Context, c: CaseInfo): Pair<Intent?, String> = try
     val send = Intent(Intent.ACTION_SEND_MULTIPLE).setType("*/*")
         .putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris)).putExtra(Intent.EXTRA_SUBJECT, "N0RMA case file")
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    send to "Share the .txt and .pdf together: only the .txt can be verified exactly. The original photos are included so their hashes can be checked."
+    send to "Share the .txt and .pdf together: only the .txt can be verified exactly. The photos are included as saved here, with location data removed, so their hashes can be checked."
 } catch (t: Throwable) { null to "Couldn't prepare the files to share." }

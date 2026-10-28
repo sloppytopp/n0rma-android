@@ -41,9 +41,29 @@ object CaseFile {
     /** Hides all but the last byte of every MAC address. */
     fun redactMacs(s: String): String = MAC.replace(s) { "xx:xx:xx:xx:xx:" + it.groupValues[2].lowercase() }
 
+    private val QUOTED = Regex("'[^']*'")
+
+    /** Wi-Fi names (printed in single quotes in event messages) often identify a home, so they are hidden too. */
+    fun redactNames(s: String): String = QUOTED.replace(s, "'[name hidden]'")
+
+    /** The flagged events of a built report as "time | level | area | detail" lines (chain hashes dropped), oldest first. */
+    fun timeline(report: String): List<String> {
+        val lines = report.lines()
+        val start = lines.indexOfFirst { it.startsWith("EVENT LOG") }
+        if (start < 0) return emptyList()
+        val out = ArrayList<String>()
+        var i = start + 1
+        while (i < lines.size && lines[i].isNotBlank()) {
+            val l = lines[i]; val cut = l.lastIndexOf(" | ")
+            if (cut > 0) out += l.substring(0, cut).substringAfter(" | ")     // drop the line number and the chained hash
+            i++
+        }
+        return out
+    }
+
     /** Redaction must happen BEFORE Evidence.build: changing a built report would break its hash chain. */
     fun redact(events: List<EventRow>, follow: List<FollowHit>, sights: List<Sight>): Triple<List<EventRow>, List<FollowHit>, List<Sight>> = Triple(
-        events.map { it.copy(msg = redactMacs(it.msg)) },
+        events.map { it.copy(msg = redactNames(redactMacs(it.msg))) },
         follow.map { it.copy(key = redactMacs(it.key), label = redactMacs(it.label)) },
         sights.map { it.copy(key = redactMacs(it.key), label = redactMacs(it.label)) },
     )
