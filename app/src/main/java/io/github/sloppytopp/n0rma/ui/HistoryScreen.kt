@@ -62,6 +62,8 @@ fun HistoryScreen() {
             colors = ButtonDefaults.buttonColors(containerColor = UiColors.buttonBg, contentColor = UiColors.buttonFg),
         ) { Text("Export evidence report") }
 
+        if (io.github.sloppytopp.n0rma.BuildConfig.PRO) CaseScreen()
+
         Text("Sweep report (TSCM-style)", color = UiColors.text, fontSize = 16.sp)
         Text("A fuller report: which rooms you swept and inspected, what was NOT checked, and what was flagged. It never says a place is \"clear\". Same tamper-evident hash chain; you choose where to send it.", color = UiColors.dim, fontSize = 12.sp)
         Button(

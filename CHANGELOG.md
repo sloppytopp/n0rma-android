@@ -1,4 +1,8 @@
 # Changelog
+## Unreleased
+- Radar cards say "weak signal: far away or behind walls" for weak readings and show the dBm; the Settings footer shows the real version.
+- Magnetic locator (Rooms tab) and a Wi-Fi band view (2.4 / 5 / 6 GHz) for survey walks.
+- New optional **Pro build** (`./gradlew assemblePro`, separate app `...n0rma.pro`): saved case files with your notes and location-stripped photos inside the hash chain, a readable PDF shared next to the verifiable .txt, a MAC-hiding toggle, and a timestamp hand-off. Detection stays free in every build.
 ## 0.7.0
 - Home screen now has two live proximity radars (Bluetooth and Wi-Fi) with a plain-language card for each result. Each card has Find it, This is mine, Watch it (alerts when a pinned Wi-Fi device returns) and Details (raw MAC, maker, signal, channel, security). The Unresolved card opens the list of items to review, each with a one-line explanation. Distance is estimated from signal strength; a dot's angle carries no meaning.
 - "Walk the whole house" (Rooms tab): a guided, GPS-free walk room by room that reports what is probably inside the home, what is a neighbor's (weak in every room) and what is unclear. Outside networks can be labelled as neighbors'. A network that only copies one of your network names is never hidden as yours.
