@@ -102,8 +102,20 @@ This is a beta; detection has been exercised on one phone so far (a second phone
 JDK 17 + Android SDK 35: `./gradlew assembleDebug testDebugUnitTest` (JUnit tests over the radio parsing and detection logic; CI runs them on every push), then `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
 Release builds read signing details from an untracked `keystore.properties`; without it the release APK is unsigned (which is what F-Droid needs).
 
-### Optional SDR build: hidden-microphone sweep
-`./gradlew assembleSdr` builds a separate app (`io.github.sloppytopp.n0rma.sdr`, installs next to the standard one) with an extra **Mic** tab: an RTL-SDR dongle hunts for the radio transmitter a hidden microphone would use. It needs the free [RTL-SDR driver](https://f-droid.org/packages/marto.rtl_tcp_andro/) app, a USB-OTG adapter and a dongle (RTL-SDR Blog V3 recommended). It has the INTERNET permission, only because Android requires it to talk to that driver app on `127.0.0.1`; it opens no other connection. The standard app has no Mic tab and no internet permission. Details and limits: the Mic tab itself, and the desktop [n0rma](https://github.com/sloppytopp/n0rma) README.
+### Optional SDR build: spectrum analyzer and hidden-microphone sweep
+`./gradlew assembleSdr` builds a separate app (`io.github.sloppytopp.n0rma.sdr`, installs next to the standard one) for an RTL-SDR dongle (RTL-SDR Blog V3 tested) plugged into the phone's USB port through a USB-OTG adapter.
+
+- **Spectrum tab** (built-in, no other app needed): N0RMA drives the dongle itself over Android's USB host API. It shows a live spectrum and waterfall 2.4 MHz wide, tap-to-tune, a frequency box with presets (FM, airband, weather, 433, 915, ADS-B), fixed gain, and a list of the strongest signals with the *usual* band name. It shows signal strength by frequency only: it cannot decode what a signal says or tell you what it is. A dongle covers about 24 MHz to 1.7 GHz, so Wi-Fi and Bluetooth are not visible here. Receiving only; rules about listening to some transmissions differ by country.
+- **Mic tab:** hunts for the radio transmitter a hidden microphone would use. It still needs the free [RTL-SDR driver](https://f-droid.org/packages/marto.rtl_tcp_andro/) app for now (moving it onto the built-in driver is next), which is why this build still holds the INTERNET permission, only to talk to that app on `127.0.0.1`.
+
+<p>
+<img src="docs/spectrum_fm.png" width="32%" alt="Spectrum and waterfall around 100 MHz (FM broadcast stations)">
+<img src="docs/spectrum_915.png" width="32%" alt="Spectrum and waterfall around 915 MHz (short bursts from nearby sensors)">
+</p>
+
+_Screenshots are the real analyzer on a Blog V3: FM stations near 100 MHz, and short bursts near 915 MHz._
+
+The built-in USB driver is a Kotlin port of the RTL2832U/R820T2 register sequences from `librtlsdr`, so the **SDR build is GPL-2.0-or-later** (the driver lives only in `app/src/sdr`; the standard build is MIT and contains none of it). The standard app has no Spectrum or Mic tab and no internet permission. See also the desktop [n0rma](https://github.com/sloppytopp/n0rma) README.
 
 ## Related
 - [n0rma](https://github.com/sloppytopp/n0rma) - the Linux sibling (`pip install n0rma`) with the same detection, plus RTL-SDR support.

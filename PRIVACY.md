@@ -3,6 +3,8 @@ _Last updated: 2026-10-09_
 
 **Short version: N0RMA collects nothing and sends nothing. The standard app has no internet permission.**
 
+_The optional SDR build also has a built-in USB driver for an RTL-SDR dongle: Android asks your permission for the dongle, and the Spectrum tab only reads radio samples on this phone; nothing is saved or sent. Its Mic tab still uses the internet permission below._
+
 _The optional SDR build (a separate app, `...n0rma.sdr`, built with `./gradlew assembleSdr`) adds the internet permission solely to connect to the RTL-SDR driver app on this phone (127.0.0.1). It still sends nothing anywhere._
 
 ## What the app does with data
