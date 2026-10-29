@@ -7,13 +7,22 @@
 Detect-only. No account, no cloud, no ads, no analytics, and no internet permission at all.
 
 <p>
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1_status.png" width="24%" alt="Status with plain-language banner (sample data)">
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2_nearby.png" width="24%" alt="Nearby Wi-Fi and Bluetooth list (sample data)">
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3_radar.png" width="24%" alt="Proximity radar and drone map (sample data)">
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4_finder.png" width="24%" alt="Tap-to-find meter and compass (sample data)">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1_status.png" width="19%" alt="Status with plain-language banner (sample data)">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2_radars.png" width="19%" alt="Proximity radars (sample data)">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3_nearby.png" width="19%" alt="Nearby Wi-Fi and Bluetooth list (sample data)">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4_finder.png" width="19%" alt="Tap-to-find meter and compass (sample data)">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5_magnetic.png" width="19%" alt="Magnetic locator with a baseline set">
 </p>
 
-_All screenshots use the built-in sample data - no real networks or places._
+_Screenshots use the built-in sample data (no real networks or places). The magnetic locator shows only the phone's own sensor reading._
+
+## New since 0.7.0 (on `main`, not yet released)
+- **Magnetic locator** and **Wi-Fi band view** for survey walks (below).
+- **Presence log** (History tab): when each hidden or private-address network was around, so you can see what keeps coming back.
+- **Maker names** for everyday devices (Roku, Amazon, TP-Link and thousands more, from the public IEEE list), including private-address copies like a Roku's Wi-Fi Direct. Names are informational: a match never lowers an alert.
+- **Plainer distance wording:** weak signals now read "far away or behind walls" and every radar card shows its dBm, because signal strength cannot tell a distant device from a close one behind a wall.
+- A **support link** and the real version number in Settings.
+- An optional **Pro build** with saved case files (see below). All detection stays free.
 
 ## What it does
 - **Trackers**: finds Bluetooth trackers separated from their owner (Apple Find My / AirTag-style, Tile, Samsung SmartTag, Chipolo). Normal "owner nearby" signals are ignored on purpose.
@@ -25,6 +34,8 @@ _All screenshots use the built-in sample data - no real networks or places._
 - **Tap-to-find**: tap an alert for a hot/cold meter, a warmer/colder arrow, a real compass sweep (trackers), or a GPS + compass arrow with distance (drones that broadcast a position).
 - **Room sweeps**: baseline each room, spot what is *new*, and see which room a device is probably in - without GPS.
 - **Survey walks**: log what you hear while you walk, see rough source positions, and save a **KML** (Google Earth) or **WiGLE-format CSV**. Files are saved locally; nothing uploads.
+- **Wi-Fi bands**: the survey shows how many networks and how strong on 2.4, 5 and 6 GHz, can filter the map and exports by band, and the KML notes each source's band. A strong 5 GHz signal usually means the source is close.
+- **Magnetic locator** (Rooms tab): set a baseline away from the thing you are checking, then move the phone toward it; a bar and a microTesla number rise where the magnetic field changes (electronics, speakers, magnets, steel). It is a close-range *locator*, not a safety meter: it works within a few centimetres and a quiet reading proves nothing.
 - **"This is mine"** for your own trackers, so they stop flagging.
 - **Calm by design**: true-black, low-glare screens and a dim-red night mode, so searching at night does not light up the street. Status is always word + icon + colour.
 - **Discreet mode**: neutral notifications hidden on the lock screen, PIN lock, hidden from recent apps and screenshots, a Notes/Weather launcher disguise, one-tap quick exit.
@@ -59,6 +70,9 @@ Only use the official sources below. Other "APK sites" can host modified copies,
 An optional **Pro build** (`./gradlew assemblePro`, installs as a separate app) adds saved case files: your notes and photos, a shareable PDF and the verifiable text report. All detection stays free in every build.
 
 Requires Android 8+ and a phone with Bluetooth LE. Tested on a TCL 5087Z (Android 11) and, by an independent reviewer on the F-Droid merge request, a Samsung SM-G998B (Android 15): installs, launches, renders every tab, no network traffic, no crashes (v0.6.0; install and UI only, detection was not exercised). After installing, tap **Try it with sample data** to see every screen work before trusting it with anything real.
+
+### Pro build (optional, test build)
+`./gradlew assemblePro` builds a separate app (`io.github.sloppytopp.n0rma.pro`) that installs next to the free one and adds **case files** on the History tab: your own notes and photos packaged with the flagged events into one saved case. You share a verifiable `.txt` report (every line hash-chained; your notes and photos sit inside the chain, labelled "not verified by the app"), a readable PDF with a timeline and a "what this phone cannot check" section, and the saved photos (re-encoded, with location data removed). An option hides device addresses and Wi-Fi network names. It is a documented, tamper-evident record - **not proof of who placed a device, and not a guarantee of any outcome.** Saved cases stay on the phone until you delete them. The Pro build adds no permission and has no internet access; the free build contains none of this code.
 
 ### Verify your download
 Each release lists two values you can check:

@@ -63,7 +63,8 @@ fun MagnetometerSweep(onClose: () -> Unit) {
                     "2. Move the phone slowly toward it, within a few centimetres. 3. The bar rises where the magnetic field changes: electronics, speakers, magnets and steel all do it.",
                     color = UiColors.dim, fontSize = 12.sp)
                 val color = when (meter.level) { MagLevel.STRONG -> UiColors.alert; MagLevel.NOTICEABLE -> UiColors.watch; else -> UiColors.good }
-                Text("%.0f µT".format(meter.current) + (if (meter.baseline != null) "   (+%.0f from baseline)".format(meter.delta) else ""), color = UiColors.text, fontSize = 28.sp)
+                Text("%.0f µT".format(meter.current), color = UiColors.text, fontSize = 28.sp)
+                if (meter.baseline != null) Text("+%.0f µT from baseline".format(meter.delta), color = UiColors.dim, fontSize = 14.sp)
                 Box(Modifier.fillMaxWidth().height(24.dp).background(UiColors.faint.copy(alpha = 0.25f))) {
                     Box(Modifier.fillMaxHeight().fillMaxWidth(meter.fill).background(color))
                 }
