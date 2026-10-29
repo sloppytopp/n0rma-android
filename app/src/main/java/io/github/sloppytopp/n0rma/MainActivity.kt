@@ -63,6 +63,7 @@ import io.github.sloppytopp.n0rma.scan.Monitor
 import io.github.sloppytopp.n0rma.scan.ScanService
 import io.github.sloppytopp.n0rma.ui.DroneMapView
 import io.github.sloppytopp.n0rma.ui.HelpCard
+import io.github.sloppytopp.n0rma.ui.SpectrumScreen
 import io.github.sloppytopp.n0rma.ui.FollowCard
 import io.github.sloppytopp.n0rma.ui.Heartbeat
 import io.github.sloppytopp.n0rma.ui.LockScreen
@@ -175,7 +176,7 @@ private fun Root() {
         if (Prefs.hacker) Box(Modifier.fillMaxWidth().padding(vertical = 2.dp), contentAlignment = androidx.compose.ui.Alignment.Center) { DefconStrip(Monitor.snapshot) }
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalMinimumInteractiveComponentSize provides androidx.compose.ui.unit.Dp.Unspecified) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            (if (BuildConfig.SDR) listOf("Status", "Nearby", "Rooms", "Radar", "Log", "Setup", "Smart", "Mic") else listOf("Status", "Nearby", "Rooms", "Radar", "History", "Settings", "Smart")).forEachIndexed { i, name ->
+            (if (BuildConfig.SDR) listOf("Status", "Nearby", "Rooms", "Radar", "Log", "Setup", "Smart", "Mic", "Spectrum") else listOf("Status", "Nearby", "Rooms", "Radar", "History", "Settings", "Smart")).forEachIndexed { i, name ->
                 TextButton(onClick = { tab = i }, modifier = Modifier.defaultMinSize(minWidth = 1.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 1.dp)) {
                     Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
                         Text(name, color = if (tab == i) UiColors.text else UiColors.faint, fontSize = 10.sp, maxLines = 1, softWrap = false,
@@ -197,6 +198,7 @@ private fun Root() {
                 5 -> SettingsScreen()
                 6 -> SmartScreen()
                 7 -> if (BuildConfig.SDR) MicScreen() else SmartScreen()
+                8 -> if (BuildConfig.SDR) SpectrumScreen() else SmartScreen()
                 else -> SmartScreen()
             }
         }
