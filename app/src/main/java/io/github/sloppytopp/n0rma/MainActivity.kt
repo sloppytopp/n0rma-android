@@ -189,6 +189,12 @@ private fun Root() {
         }
         }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (io.github.sloppytopp.n0rma.detect.ScanWatch.stoppedUnexpectedly(Prefs.scanWanted, Monitor.snapshot.running)) {
+                Column(Modifier.fillMaxWidth().background(UiColors.warn.copy(alpha = 0.15f)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(io.github.sloppytopp.n0rma.detect.ScanWatch.message(Prefs.lastBeat), color = UiColors.text, fontSize = 13.sp)
+                    Row { TextButton(onClick = { tab = 0 }) { Text("Go to Status") }; TextButton(onClick = { Prefs.markScanWanted(false) }) { Text("Dismiss", color = UiColors.dim) } }
+                }
+            }
             when (tab) {
                 0 -> StatusScreen()
                 1 -> NearbyScreen()

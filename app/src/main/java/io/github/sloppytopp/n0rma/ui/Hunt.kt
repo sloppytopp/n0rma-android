@@ -90,6 +90,7 @@ private fun Notice(text: String, onClose: () -> Unit) = AlertDialog(
 
 @Composable
 private fun DroneHunt(onClose: () -> Unit) {
+    val openMaps = rememberMapsOpener()
     val ctx = LocalContext.current
     LaunchedEffect(Unit) { while (true) { Monitor.refresh(); delay(1000) } }
     val s = Monitor.snapshot
@@ -137,9 +138,9 @@ private fun DroneHunt(onClose: () -> Unit) {
                     if (!compass.available) Text("No compass sensor on this phone: use the compass direction (${Geo.compass(bearing)}) instead of the arrow.", fontSize = 12.sp)
                     else Text("Hold the phone flat so the arrow is accurate. It follows the drone as it moves.", fontSize = 11.sp)
                 }
-                TextButton(onClick = { openInMaps(ctx, fix.lat!!, fix.lon!!, "Drone claim ${fix.id}") }) { Text("Open the drone's position in Maps") }
+                TextButton(onClick = { openMaps(fix.lat!!, fix.lon!!, "Drone claim ${fix.id}") }) { Text("Open the drone's position in Maps") }
                 fix.opLat?.let { la -> fix.opLon?.let { lo ->
-                    TextButton(onClick = { openInMaps(ctx, la, lo, "Claimed operator position") }) { Text("Open the claimed operator position in Maps") }
+                    TextButton(onClick = { openMaps(la, lo, "Claimed operator position") }) { Text("Open the claimed operator position in Maps") }
                 } }
                 Text("Safety: don't approach, chase or confront whoever may be flying it - the operator position is just a claim. Note the time, take photos from a safe distance, and report it to local law enforcement or the FAA. Never interfere with a drone.", fontSize = 11.sp)
             }

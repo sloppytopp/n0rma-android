@@ -88,6 +88,7 @@ class ScanService : Service() {
         override fun run() {
             if (wifiN++ % (if (Monitor.hunt != null || Monitor.fastWifi) 5 else 10) == 0) wifi?.poke()   // ~30 s, or ~15 s while hunting
             checkWatched()
+            System.currentTimeMillis().let { n -> if (io.github.sloppytopp.n0rma.detect.ScanWatch.beatDue(Prefs.lastBeat, n)) Prefs.beat(n) }
             Monitor.snapshot.let { sn ->
                 if (sn.wifiAt != 0L && sn.wifiAt != lastPresenceAt) {
                     lastPresenceAt = sn.wifiAt
@@ -128,12 +129,14 @@ class ScanService : Service() {
         val ok = scanner!!.start()
         wifi = WifiScanner(this).also { it.start() }
         Monitor.engine.running = ok
-        if (!ok) { Monitor.refresh(); stopSelf(); return START_NOT_STICKY }
+        if (!ok) { Prefs.markScanWanted(false); Monitor.refresh(); stopSelf(); return START_NOT_STICKY }
+        Prefs.markScanWanted(true); Prefs.beat(System.currentTimeMillis())
         handler.removeCallbacks(tick); handler.post(tick)
         return START_STICKY
     }
 
     private fun stopScanning() {
+        Prefs.markScanWanted(false)               // the user stopped it: not an unexpected stop
         markStop()
         handler.removeCallbacks(tick)
         scanner?.stop(); scanner = null

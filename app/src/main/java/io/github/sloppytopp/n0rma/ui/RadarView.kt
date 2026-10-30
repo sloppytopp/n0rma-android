@@ -198,6 +198,7 @@ fun RadarView(s: Snapshot) {
 
 @Composable
 fun DroneMapView(s: Snapshot) {
+    val openMaps = rememberMapsOpener()
     val home = Prefs.displayHome
     val fixes = s.fixes.filter { it.lat != null && it.lon != null }
     if (home == null) {
@@ -242,7 +243,7 @@ fun DroneMapView(s: Snapshot) {
             val dir = Geo.compass(Geo.bearingDeg(f.lat, f.lon, home.lat, home.lon))
             Text("Drone ${f.id}: ${Math.round(d)} m $dir of home, alt ${f.alt?.let { Math.round(it).toString() } ?: "?"} m" +
                 (if (f.opLat != null) " (dot = claimed operator position, shown live only)" else ""), color = UiColors.text, fontSize = 12.sp)
-            TextButton(onClick = { openInMaps(ctx, f.lat, f.lon!!, "Drone claim ${f.id}") }) { Text("Open this position in your Maps app") }
+            TextButton(onClick = { openMaps(f.lat, f.lon!!, "Drone claim ${f.id}") }) { Text("Open this position in your Maps app") }
         }
         Text("Positions are whatever the broadcast claims - Remote ID can be faked.", color = UiColors.faint, fontSize = 11.sp)
     }

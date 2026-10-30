@@ -24,6 +24,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -99,6 +103,27 @@ fun LiveBanner(s: Snapshot) {
             Text(sub, color = UiColors.dim, fontSize = 12.sp)
         }
     }
+}
+
+/**
+ * Opening a position hands its coordinates to whichever maps app is installed, which may keep or share them. Returns a function that asks first;
+ * a "My home" position gets a stronger warning because it is the most sensitive place in the app.
+ */
+@Composable
+fun rememberMapsOpener(): (Double, Double, String) -> Unit {
+    val ctx = LocalContext.current
+    var pending by remember { mutableStateOf<Triple<Double, Double, String>?>(null) }
+    pending?.let { (la, lo, label) ->
+        androidx.compose.material3.AlertDialog(
+            containerColor = UiColors.dialogBg, titleContentColor = UiColors.text, textContentColor = UiColors.text,
+            onDismissRequest = { pending = null }, title = { Text("Send this position to your Maps app?") },
+            text = { Text((if (label == "My home") "This is your HOME location. " else "") +
+                "Opening it gives these coordinates to whichever maps app you have, and that app may store or share them. N0RMA itself sends nothing.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { pending = null; openInMaps(ctx, la, lo, label) }) { Text("Open") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { pending = null }) { Text("Cancel") } },
+        )
+    }
+    return { la, lo, label -> pending = Triple(la, lo, label) }
 }
 
 fun openInMaps(ctx: Context, lat: Double, lon: Double, label: String) {

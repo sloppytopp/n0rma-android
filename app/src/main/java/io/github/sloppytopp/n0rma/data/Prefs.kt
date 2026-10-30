@@ -44,6 +44,9 @@ object Prefs {
     /** Devices ("wifi:<bssid>") the user pinned: N0RMA alerts when one comes back into range. */
     var watched by mutableStateOf<Set<String>>(emptySet()); private set
     var discreet by mutableStateOf(false); private set
+    /** True from the moment the user starts scanning until they stop it: if it is true and nothing is scanning, the system closed the service. */
+    var scanWanted by mutableStateOf(false); private set
+    var lastBeat by mutableStateOf(0L); private set
     var rooms by mutableStateOf<List<String>>(emptyList()); private set
     var hasPin by mutableStateOf(false); private set
     var micBaseline by mutableStateOf<String?>(null); private set   // RTL-SDR mic-sweep baseline (see detect/RfSweep.kt)
@@ -65,6 +68,8 @@ object Prefs {
         watched = sp.getStringSet("watched", emptySet()) ?: emptySet()
         neighbors = sp.getStringSet("neighbors", emptySet()) ?: emptySet()
         discreet = sp.getBoolean("discreet", false)
+        scanWanted = sp.getBoolean("scan_wanted", false)
+        lastBeat = sp.getLong("last_beat", 0L)
         rooms = (sp.getString("rooms", "") ?: "").split("|").filter { it.isNotBlank() }
         hasPin = sp.contains("pin_hash")
         micBaseline = sp.getString("mic_baseline", null)
@@ -98,6 +103,8 @@ object Prefs {
     fun toggleResolved(key: String) { resolved = if (key in resolved) resolved - key else resolved + key; sp.edit().putStringSet("resolved", resolved.toSet()).apply() }
     fun saveNight(v: Boolean) { classicNight = v; sp.edit().putBoolean("night", v).apply() }
     fun saveAlertStyle(v: AlertStyle) { alertStyle = v; sp.edit().putString("alert", v.name).apply() }
+    fun markScanWanted(v: Boolean) { scanWanted = v; sp.edit().putBoolean("scan_wanted", v).apply() }
+    fun beat(nowMs: Long) { lastBeat = nowMs; sp.edit().putLong("last_beat", nowMs).apply() }
     fun saveHome(h: Home?) {
         home = h
         sp.edit().apply {
