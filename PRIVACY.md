@@ -20,6 +20,7 @@ _The optional SDR build (a separate app, `...n0rma.sdr`, built with `./gradlew a
 | Location (precise) | Android 11 and older require it for Bluetooth and Wi-Fi scanning; also used, on request, to set your home and during a survey walk. N0RMA never uploads it |
 | Nearby Wi-Fi devices (Android 13+) | Scan Wi-Fi networks |
 | Foreground service + notifications | Keep scanning in the background and chime when something is flagged |
+| Start after restart (optional) | Only used if you turn on "Resume scanning after the phone restarts" in Settings. Off by default; it lets N0RMA start scanning again after a reboot if scanning was on before |
 | Vibrate | Optional vibrate-only alerts, and the optional vibration guide in the finder |
 | Camera | Only for the **Lens finder** (Rooms tab), and only when you open it. The camera and flash run as a torch so small lens glints stand out. Each picture is analysed in memory on the phone and discarded: **nothing is saved, recorded, uploaded or shared**, and the app has no internet permission to send it anywhere. Android asks you first, and the light and camera are released the moment you close the finder. You can deny the permission and everything else still works |
 

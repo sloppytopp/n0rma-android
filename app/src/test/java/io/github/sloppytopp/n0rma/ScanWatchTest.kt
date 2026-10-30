@@ -1,6 +1,7 @@
 package io.github.sloppytopp.n0rma
 
 import io.github.sloppytopp.n0rma.detect.ScanWatch
+import io.github.sloppytopp.n0rma.detect.WatchAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -40,5 +41,30 @@ class ScanWatchTest {
         assertTrue(ScanWatch.beatDue(lastBeatMs = 1_000_000L, nowMs = 1_060_000L))
         assertTrue(ScanWatch.beatDue(lastBeatMs = 0L, nowMs = 5L))
         assertEquals(60_000L, ScanWatch.BEAT_EVERY_MS)
+    }
+
+    @Test fun watchdogRecoversOnlyWhenScanningWasWantedAndIsNotRunning() {
+        assertEquals(WatchAction.RECOVER, ScanWatch.watchdogAction(wanted = true, running = false))
+        assertEquals(WatchAction.KEEP_WATCHING, ScanWatch.watchdogAction(wanted = true, running = true))
+    }
+
+    @Test fun watchdogStopsWhenTheUserStoppedScanning() {
+        assertEquals(WatchAction.STOP_WATCHING, ScanWatch.watchdogAction(wanted = false, running = false))
+        assertEquals(WatchAction.STOP_WATCHING, ScanWatch.watchdogAction(wanted = false, running = true))
+    }
+
+    @Test fun resumeAfterRestartNeedsBothTheSettingAndScanningToHaveBeenOn() {
+        assertTrue(ScanWatch.resumeOnBoot(resumeEnabled = true, wanted = true))
+        assertFalse(ScanWatch.resumeOnBoot(resumeEnabled = false, wanted = true))     // off by default: discreet users may not want this
+        assertFalse(ScanWatch.resumeOnBoot(resumeEnabled = true, wanted = false))
+    }
+
+    @Test fun watchdogChecksAboutEveryFifteenMinutes() = assertEquals(15 * 60_000L, ScanWatch.WATCHDOG_EVERY_MS)
+
+    @Test fun stoppedNoticeIsNeutralInDiscreetMode() {
+        val d = ScanWatch.stoppedNotice(discreet = true)
+        assertFalse(d.second.contains("N0RMA", ignoreCase = true)); assertFalse(d.second.contains("scan", ignoreCase = true))
+        val n = ScanWatch.stoppedNotice(discreet = false)
+        assertTrue(n.second.contains("restart", ignoreCase = true))
     }
 }

@@ -18,6 +18,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Optional: lets N0RMA resume scanning after the phone restarts, only if you turn that on in Settings. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Optional "Check this phone for stalkerware" scan. Instead of the broad QUERY_ALL_PACKAGES permission it declares exactly what it looks for:
          (1) the 613 package names on the public Coalition Against Stalkerware list (assets/stalkerware_packages.csv; regenerate this block with
@@ -663,6 +665,11 @@
             android:label="Weather" android:icon="@mipmap/ic_launcher_weather">
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity-alias>
+
+        <receiver android:name=".scan.WatchdogReceiver" android:exported="false" />
+        <receiver android:name=".scan.BootReceiver" android:exported="false">
+            <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
+        </receiver>
 
         <service
             android:name=".scan.ScanService"

@@ -47,6 +47,8 @@ object Prefs {
     /** True from the moment the user starts scanning until they stop it: if it is true and nothing is scanning, the system closed the service. */
     var scanWanted by mutableStateOf(false); private set
     var lastBeat by mutableStateOf(0L); private set
+    /** Opt-in: start scanning again by itself after the phone restarts (only if scanning was on before). Off by default. */
+    var resumeAfterBoot by mutableStateOf(false); private set
     var rooms by mutableStateOf<List<String>>(emptyList()); private set
     var hasPin by mutableStateOf(false); private set
     var micBaseline by mutableStateOf<String?>(null); private set   // RTL-SDR mic-sweep baseline (see detect/RfSweep.kt)
@@ -70,6 +72,7 @@ object Prefs {
         discreet = sp.getBoolean("discreet", false)
         scanWanted = sp.getBoolean("scan_wanted", false)
         lastBeat = sp.getLong("last_beat", 0L)
+        resumeAfterBoot = sp.getBoolean("resume_boot", false)
         rooms = (sp.getString("rooms", "") ?: "").split("|").filter { it.isNotBlank() }
         hasPin = sp.contains("pin_hash")
         micBaseline = sp.getString("mic_baseline", null)
@@ -104,6 +107,7 @@ object Prefs {
     fun saveNight(v: Boolean) { classicNight = v; sp.edit().putBoolean("night", v).apply() }
     fun saveAlertStyle(v: AlertStyle) { alertStyle = v; sp.edit().putString("alert", v.name).apply() }
     fun markScanWanted(v: Boolean) { scanWanted = v; sp.edit().putBoolean("scan_wanted", v).apply() }
+    fun saveResumeAfterBoot(v: Boolean) { resumeAfterBoot = v; sp.edit().putBoolean("resume_boot", v).apply() }
     fun beat(nowMs: Long) { lastBeat = nowMs; sp.edit().putLong("last_beat", nowMs).apply() }
     fun saveHome(h: Home?) {
         home = h

@@ -106,6 +106,23 @@ class ScanService : Service() {
         }
     }
 
+    private var btWatch: android.content.BroadcastReceiver? = null
+    /** If Bluetooth is switched off and on while scanning, the radio scan does not come back by itself: start it again. */
+    private fun registerBtWatch() {
+        if (btWatch != null) return
+        val rx = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context, i: Intent) {
+                if (i.getIntExtra(android.bluetooth.BluetoothAdapter.EXTRA_STATE, -1) == android.bluetooth.BluetoothAdapter.STATE_ON) {
+                    scanner?.let { it.stop(); it.start() }
+                }
+            }
+        }
+        androidx.core.content.ContextCompat.registerReceiver(this, rx, android.content.IntentFilter(android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED),
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+        btWatch = rx
+    }
+    private fun unregisterBtWatch() { btWatch?.let { runCatching { unregisterReceiver(it) } }; btWatch = null }
+
     private fun nm() = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     private fun statusLine(d: Level, t: Level) =
@@ -131,12 +148,15 @@ class ScanService : Service() {
         Monitor.engine.running = ok
         if (!ok) { Prefs.markScanWanted(false); Monitor.refresh(); stopSelf(); return START_NOT_STICKY }
         Prefs.markScanWanted(true); Prefs.beat(System.currentTimeMillis())
+        Watchdog.clearNotice(this); Watchdog.schedule(this)
+        registerBtWatch()
         handler.removeCallbacks(tick); handler.post(tick)
         return START_STICKY
     }
 
     private fun stopScanning() {
         Prefs.markScanWanted(false)               // the user stopped it: not an unexpected stop
+        Watchdog.cancel(this); unregisterBtWatch()
         markStop()
         handler.removeCallbacks(tick)
         scanner?.stop(); scanner = null
@@ -149,6 +169,7 @@ class ScanService : Service() {
     }
 
     override fun onDestroy() {
+        unregisterBtWatch()
         markStop()
         handler.removeCallbacks(tick)
         scanner?.stop()
