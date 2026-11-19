@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/images/n0rma-banner.png" alt="N0rma" width="100%"></p>
+
 # N0RMA for Android
 
 [![CI](https://github.com/sloppytopp/n0rma-android/actions/workflows/ci.yml/badge.svg)](https://github.com/sloppytopp/n0rma-android/actions/workflows/ci.yml)
