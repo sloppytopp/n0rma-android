@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/images/hero-banner.png" alt="N0rma: a quiet lookout for any place you need to trust" width="100%"></p>
+
 # N0RMA for Android
 
 [![CI](https://github.com/sloppytopp/n0rma-android/actions/workflows/ci.yml/badge.svg)](https://github.com/sloppytopp/n0rma-android/actions/workflows/ci.yml)
@@ -125,3 +127,6 @@ N0RMA is free, with no ads or tracking, and stays that way for every detection f
 
 ## Contributing, security, license
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md). How it works and what it cannot do: [docs/METHODOLOGY.md](docs/METHODOLOGY.md). Design notes: [docs/design.md](docs/design.md). MIT licensed.
+
+---
+Banner photo: [&ldquo;Eastern Light&rdquo;](https://commons.wikimedia.org/wiki/File:Eastern_Light.jpg) by Dureall (2008), via Wikimedia Commons, licensed [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). Cropped and darkened; the banner image `docs/images/hero-banner.png` is shared under the same licence. The rest of this repository is under its own licence.
