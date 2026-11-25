@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Pro: the Spectrum tab talks to an RTL-SDR dongle over USB (Android asks you first). Not required: the app also runs without a USB host port. -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
     <application>
         <!-- Pro only: lets the share sheet read the case .txt/.pdf from the app's cache. Nothing else is exposed. -->
         <provider

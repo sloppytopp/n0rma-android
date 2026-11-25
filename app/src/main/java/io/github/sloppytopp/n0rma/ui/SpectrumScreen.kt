@@ -67,6 +67,7 @@ fun SpectrumScreen() {
             onClick = { if (run.running) run.stop() else run.start(ctx) }, modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = UiColors.buttonBg, contentColor = UiColors.buttonFg),
         ) { Text(if (run.running) "Stop" else "Start the spectrum") }
+        if (io.github.sloppytopp.n0rma.BuildConfig.PRO) SweepSection(onTune = { hz -> freqText = "%.3f".format(hz / 1e6); run.tune(hz) })
         Text(run.status + if (run.running && d.isNotEmpty()) "  -  ${mhz(run.centerHz)}, 2.4 MHz wide" else "", color = if (run.status == "Running") UiColors.good else UiColors.warn, fontSize = 12.sp)
 
         if (d.isNotEmpty()) {
