@@ -65,4 +65,46 @@ class SpectrumMathTest {
     }
 
     @Test fun fftRejectsNonPowerOfTwo() { try { SpectrumMath.fft(FloatArray(100), FloatArray(100)); org.junit.Assert.fail() } catch (e: IllegalArgumentException) {} }
+
+    @Test fun sweepStepKeepsTheCentreAndRemovesTheDcSpike() {
+        val psd = FloatArray(1024) { -30f }
+        psd[512] = 20f                                                   // tuner DC spike
+        psd[300] = -5f                                                   // a real signal inside the kept part (bins 128..895)
+        psd[50] = 40f                                                    // edge roll-off, outside the kept part
+        val out = SpectrumMath.sweepStep(psd, 4)
+        assertEquals(192, out.size)
+        assertEquals(-5f, out.max(), 0f)
+        assertEquals(-5f, out[(300 - 128) / 4], 0f)
+    }
+
+    @Test fun sweepPeaksAreNumberedStrongestFirstAndLabelled() {
+        val db = FloatArray(2000) { -30f }
+        db[500] = 8f; db[1200] = 2f; db[1203] = 1f                       // the second pair is one signal, not two
+        val peaks = SpectrumMath.sweepPeaks(db, 24e6, 9375.0)
+        assertEquals(2, peaks.size)
+        assertEquals(24e6 + 500 * 9375.0, peaks[0].hz, 1.0)
+        assertEquals(8f, peaks[0].db, 0f)
+        assertEquals(-30f, SpectrumMath.noiseFloor(db), 0f)
+    }
+
+    @Test fun compareSweepsReportsNewAndGoneCarriersOnce() {
+        val base = FloatArray(1000) { -30f }; val now = base.copyOf()
+        base[200] = -5f                                                  // was there, now gone
+        now[600] = 0f; now[602] = -3f                                    // new (one carrier, two points)
+        now[800] = -25f                                                  // only 5 dB up: below the 8 dB rise
+        val (new, gone) = SpectrumMath.compareSweeps(base, now, 100e6, 37_500.0)
+        assertEquals(1, new.size); assertEquals(100e6 + 600 * 37_500.0, new[0].hz, 1.0); assertEquals(30f, new[0].deltaDb, 0f)
+        assertEquals(1, gone.size); assertEquals(100e6 + 200 * 37_500.0, gone[0].hz, 1.0); assertEquals(25f, gone[0].deltaDb, 0f)
+    }
+
+    @Test fun baselineFileRoundTripsAndRejectsGarbage() {
+        val f = java.io.File.createTempFile("sweep", ".bin")
+        val s = io.github.sloppytopp.n0rma.scan.SpectrumRun.Sweep(24e6, 37_500.0, FloatArray(50) { it - 30f }, 328, 1234L)
+        io.github.sloppytopp.n0rma.scan.SweepStore.save(f, s)
+        val r = io.github.sloppytopp.n0rma.scan.SweepStore.load(f)!!
+        assertEquals(328, r.gainTenths); assertEquals(1234L, r.takenAt); assertEquals(50, r.db.size); assertEquals(-5f, r.db[25], 0f)
+        f.writeBytes(byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8))
+        assertTrue(io.github.sloppytopp.n0rma.scan.SweepStore.load(f) == null)
+        f.delete()
+    }
 }

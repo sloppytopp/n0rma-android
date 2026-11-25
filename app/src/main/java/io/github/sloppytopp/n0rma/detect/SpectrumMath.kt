@@ -81,6 +81,7 @@ object SpectrumMath {
     fun binAt(hz: Double, nfft: Int, centerHz: Double, rate: Int) = (nfft / 2 + ((hz - centerHz) / rate * nfft)).toInt().coerceIn(0, nfft - 1)
 
     /** Usual US allocations, NOT an identification: a signal in a band might be something else entirely. MHz ranges. */
+    val bands: List<Triple<Double, Double, String>> get() = BANDS
     private val BANDS = listOf(
         24.0 to 30.0 to "CB / 10 m amateur", 30.0 to 50.0 to "VHF low (public safety, amateur 6 m starts at 50)", 50.0 to 54.0 to "6 m amateur",
         54.0 to 88.0 to "TV channels 2-6", 88.0 to 108.0 to "FM broadcast", 108.0 to 118.0 to "Aircraft navigation", 118.0 to 137.0 to "Aircraft voice (AM)",
@@ -95,5 +96,64 @@ object SpectrumMath {
     fun bandLabel(hz: Double): String {
         val mhz = hz / 1e6
         return BANDS.filter { mhz >= it.first && mhz < it.second }.minByOrNull { it.second - it.first }?.third ?: "no common allocation listed"
+    }
+
+    /** Share of each 2.4 MHz step that is kept for a wide sweep: the outer edges roll off and would show as a dip at every step joint. */
+    const val SWEEP_KEEP = 0.75
+
+    /**
+     * One step of a wide sweep: from a full-band [psd] (see [psdDb]) drop the tuner's DC spike (the middle bins are replaced by their
+     * neighbours), keep the centre [SWEEP_KEEP] of the band and shrink it by taking the strongest of every [group] bins, so a narrow signal is
+     * not averaged away. Returns lowest frequency first.
+     */
+    fun sweepStep(psd: FloatArray, group: Int = 4): FloatArray {
+        val n = psd.size
+        val d = psd.copyOf()
+        val c = n / 2
+        val left = d[c - 4]; val right = d[c + 4]
+        for (i in c - 3..c + 3) d[i] = if (i < c) left else right
+        val keep = (n * SWEEP_KEEP).toInt() / group * group
+        val from = (n - keep) / 2
+        return FloatArray(keep / group) { k -> var m = d[from + k * group]; for (j in 1 until group) if (d[from + k * group + j] > m) m = d[from + k * group + j]; m }
+    }
+
+    /** Typical noise level of a sweep: its median. */
+    fun noiseFloor(db: FloatArray): Float = if (db.isEmpty()) 0f else db.sortedArray()[db.size / 2]
+
+    /**
+     * Numbered peaks of a whole sweep, strongest first: local maxima at least [minAbove] dB over the noise level and at least [minSepHz] apart.
+     * Peak 1 is the strongest. Labels are the usual band allocation only.
+     */
+    fun sweepPeaks(db: FloatArray, startHz: Double, binHz: Double, count: Int = 10, minAbove: Float = 10f, minSepHz: Double = 600_000.0): List<Peak> {
+        if (db.size < 8) return emptyList()
+        val floor = noiseFloor(db)
+        val sep = (minSepHz / binHz).toInt().coerceAtLeast(1)
+        val w = 3
+        val cand = (w until db.size - w).filter { i -> (i - w..i + w).all { j -> j == i || db[i] > db[j] || (db[i] == db[j] && j > i) } && db[i] - floor >= minAbove }
+            .sortedByDescending { db[it] }
+        val picked = ArrayList<Int>()
+        for (i in cand) { if (picked.none { Math.abs(it - i) < sep }) picked += i; if (picked.size >= count) break }
+        return picked.map { i -> val hz = startHz + i * binHz; Peak(hz, db[i], bandLabel(hz)) }
+    }
+
+    class Change(val hz: Double, val deltaDb: Float, val db: Float, val label: String)
+
+    /**
+     * What changed between two wide sweeps made on the same grid at about the same gain (the caller checks the gain): carriers that are now at
+     * least [rise] dB stronger (first) and ones that are at least [rise] dB weaker (second). Points within [mergeHz] are one carrier. It reports
+     * usual-allocation names only; it cannot say what a signal is.
+     */
+    fun compareSweeps(base: FloatArray, now: FloatArray, startHz: Double, binHz: Double, rise: Float = 8f, mergeHz: Double = 600_000.0): Pair<List<Change>, List<Change>> {
+        val n = minOf(base.size, now.size)
+        fun side(sign: Int): List<Change> {
+            val cand = (0 until n).filter { sign * (now[it] - base[it]) >= rise }.sortedByDescending { sign * (now[it] - base[it]) }
+            val out = ArrayList<Change>()
+            for (i in cand) {
+                val hz = startHz + i * binHz
+                if (out.none { Math.abs(it.hz - hz) <= mergeHz }) out += Change(hz, sign * (now[i] - base[i]), now[i], bandLabel(hz))
+            }
+            return out.sortedBy { it.hz }
+        }
+        return side(1) to side(-1)
     }
 }

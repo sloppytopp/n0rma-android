@@ -65,6 +65,9 @@ android {
         versionNameSuffix = "-pro"
         buildConfigField("boolean", "PRO", "true")
     }
+    // The Pro build's Spectrum tab (wide sweep) needs the built-in RTL-SDR USB driver, which lives in src/sdr. Compiled into Pro too, so a
+    // dongle works without the INTERNET permission or a driver app. The free build still never contains it.
+    sourceSets.getByName("pro").java.srcDir("src/sdr/java")
     // F-Droid: no Google-signed dependency blob inside the APK/bundle
     dependenciesInfo { includeInApk = false; includeInBundle = false }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }

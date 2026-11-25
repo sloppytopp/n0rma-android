@@ -67,6 +67,7 @@ fun SpectrumScreen() {
             onClick = { if (run.running) run.stop() else run.start(ctx) }, modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = UiColors.buttonBg, contentColor = UiColors.buttonFg),
         ) { Text(if (run.running) "Stop" else "Start the spectrum") }
+        if (io.github.sloppytopp.n0rma.BuildConfig.PRO) SweepSection(onTune = { hz -> freqText = "%.3f".format(hz / 1e6); run.tune(hz) })
         Text(run.status + if (run.running && d.isNotEmpty()) "  -  ${mhz(run.centerHz)}, 2.4 MHz wide" else "", color = if (run.status == "Running") UiColors.good else UiColors.warn, fontSize = 12.sp)
 
         if (d.isNotEmpty()) {
@@ -126,15 +127,23 @@ fun SpectrumScreen() {
         Text("Gain: %.1f dB (fixed, no auto-gain, so levels stay comparable)".format(SpectrumRun.GAINS[run.gainIdx] / 10.0), color = UiColors.dim, fontSize = 12.sp)
         Slider(value = run.gainIdx.toFloat(), onValueChange = { run.setGainIndex(it.toInt()) }, valueRange = 0f..(SpectrumRun.GAINS.size - 1).toFloat(), steps = SpectrumRun.GAINS.size - 2)
 
-        if (run.peaks.isNotEmpty()) {
-            Text("Strongest signals in view", color = UiColors.text, fontSize = 14.sp)
-            run.peaks.forEach { p ->
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Text("${mhz(p.hz)}   ${p.db.toInt()} dB   ${p.label}", color = UiColors.text, fontSize = 12.sp, modifier = Modifier.weight(1f))
+        // Fixed-size block: the list refreshes every frame and used to grow, shrink and re-wrap, which shoved everything
+        // below it (and the scroll position) up and down. Always PEAK_ROWS rows of one fixed height, single-line text.
+        Text("Strongest signals in view", color = UiColors.text, fontSize = 14.sp)
+        repeat(PEAK_ROWS) { i ->
+            val p = run.peaks.getOrNull(i)
+            Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                if (p != null) {
+                    Text("${mhz(p.hz)}   ${p.db.toInt()} dB   ${p.label}", color = UiColors.text, fontSize = 12.sp, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     TextButton(onClick = { freqText = "%.3f".format(p.hz / 1e6); run.tune(p.hz) }) { Text("Tune") }
+                } else if (i == 0) {
+                    Text("Listening...", color = UiColors.faint, fontSize = 12.sp)
                 }
             }
         }
         Text("Receiving only. Rules about listening to some transmissions differ by country, so check yours.", color = UiColors.faint, fontSize = 11.sp)
     }
 }
+
+private const val PEAK_ROWS = 6   // SpectrumMath.peaks default count

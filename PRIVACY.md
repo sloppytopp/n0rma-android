@@ -28,6 +28,7 @@ _The optional SDR build (a separate app, `...n0rma.sdr`, built with `./gradlew a
 - The Pro build lets you save a **case**: a copy of the evidence report plus the notes you type and photos you add. Photos are re-encoded when added, which removes their location and camera data.
 - Saved cases are kept in the app's private storage **until you delete them** (Settings -> History -> Case file -> Delete). They are the one exception to the 30-day rule and are **not** removed by "Delete all history". Uninstalling the app erases them.
 - Sharing a case (a .txt and a .pdf) happens only when you tap Share, through Android's share sheet. The Pro build has no extra permission and no internet access.
+- The Pro **Spectrum** tab reads an RTL-SDR dongle over USB (Android asks you first) and draws signal strength by frequency. Nothing is recorded or sent. The one thing it can keep is the **baseline sweep** you save yourself (signal levels only, no names, places or audio) in the app's private storage until you save a new one or uninstall.
 
 ## Things you choose to do
 - **Address search** (Settings -> Home location): Android's own location service looks the address up. That lookup leaves your phone; typing coordinates or using GPS does not. N0RMA itself sends nothing.

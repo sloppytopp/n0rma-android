@@ -173,7 +173,7 @@ fun SettingsScreen() {
         if (Prefs.home != null) {
             TextButton(onClick = {
                 Prefs.home?.let { Monitor.engine.startDemo(it.lat, it.lon); Monitor.refresh() }
-                msg = "A demo drone (clearly labelled, not real) will show on the Radar tab's drone map for 60 seconds."
+                msg = "A demo drone (clearly labelled, not real) will show on the Map tab's drone map for 60 seconds."
             }) { Text("Preview the drone map with a demo drone") }
         }
 
