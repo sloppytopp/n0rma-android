@@ -255,7 +255,7 @@ internal fun Finder(addr: String, label: String, onClose: () -> Unit) {
                 }
                 if (isWifi) {
                     Text("Wi-Fi only refreshes every 15-30 seconds (a phone limit, not ours), so the compass sweep doesn't work well here - use warmer/colder above, or get a real position estimate:", fontSize = 12.sp)
-                    TextButton(onClick = { Monitor.requestTab = 3; onClose() }) { Text("Open Survey walk (Radar tab) -> export to Google Earth") }
+                    TextButton(onClick = { Monitor.requestTab = 3; onClose() }) { Text("Open Survey walk (Map tab) -> export to Google Earth") }
                 } else {
                 Text("Compass sweep", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
                 if (hasCompass) CompassDial(heading, finder, answer?.bearingDeg, compass.accuracy.value <= 1)
